@@ -116,38 +116,38 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
 
 ```mermaid
 flowchart LR
-    subgraph P["Platforms"]
-        CZ["CHZZK<br/>Open API + Session"]
-        SP["SOOP (planned)"]
-        CM["CIME (planned)"]
-        TB["Test bench"]
+    subgraph PLAT["Platforms"]
+        CHZZK["CHZZK<br/>Open API + Session"]
+        SOOP["SOOP (planned)"]
+        CIME["CIME (planned)"]
+        BENCH["Test bench"]
     end
 
-    subgraph O["ojakgyo"]
-        HUB(("Event hub<br/>unified events"))
-        RE["Rule engine<br/>conditions · cooldowns"]
+    subgraph BRIDGE["ojakgyo"]
+        HUB(("Event hub"))
+        RULES["Rule engine<br/>conditions + cooldowns"]
     end
 
-    subgraph X["Your stream"]
+    subgraph STREAM["Your stream"]
         VTS["VTube Studio"]
         OBS["OBS Studio"]
-        OV["Alert & chat overlays"]
+        OVERLAY["Alert and chat overlays"]
         TTS["Korean TTS"]
-        WH["Webhooks"]
+        HOOK["Webhooks"]
     end
 
-    CZ --> HUB
-    SP -.-> HUB
-    CM -.-> HUB
-    TB --> HUB
-    HUB --> RE
-    RE --> VTS
-    RE --> OBS
-    RE --> OV
-    RE --> WH
-    RE --> TTS
-    TTS --> OV
-    OV -. "lip-sync levels" .-> VTS
+    CHZZK --> HUB
+    SOOP -.-> HUB
+    CIME -.-> HUB
+    BENCH --> HUB
+    HUB --> RULES
+    RULES --> VTS
+    RULES --> OBS
+    RULES --> OVERLAY
+    RULES --> HOOK
+    RULES --> TTS
+    TTS --> OVERLAY
+    OVERLAY -.->|lip-sync levels| VTS
 ```
 
 Every connector turns platform payloads into one shape (`chat`, `donation`, `subscription`), so a rule written today keeps working when SOOP and CIME arrive.
