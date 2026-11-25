@@ -1,0 +1,303 @@
+import { readFile } from 'node:fs/promises';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { extname, join, normalize, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { WebSocketServer, type WebSocket } from 'ws';
+import { createLogger, errorMessage, onLog, type LogRecord } from '../core/logger.js';
+import type { Hub } from '../core/hub.js';
+import type { OjakgyoEvent } from '../core/events.js';
+
+const log = createLogger('server');
+
+/** `web/` lives at the package root, next to `src/` and `dist/`. */
+export const WEB_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..', '..', 'web');
+
+const MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.json': 'application/json',
+  '.ico': 'image/x-icon',
+};
+
+const PAGES: Record<string, string> = {
+  '/': 'dashboard.html',
+  '/overlay/alerts': 'overlay-alerts.html',
+  '/overlay/chat': 'overlay-chat.html',
+};
+
+export type OverlayMessage =
+  | { kind: 'event'; event: OjakgyoEvent }
+  | { kind: 'status'; statuses: ReturnType<Hub['getStatuses']> }
+  | { kind: 'log'; record: LogRecord }
+  | {
+      kind: 'alert';
+      id: string;
+      title: string;
+      message: string;
+      image?: string;
+      sound?: string;
+      accent?: string;
+      emojis?: Record<string, string>;
+      duration: number;
+      eventType: string;
+      speech?: { mode: 'browser'; text: string; lang: string } | { mode: 'audio'; text: string; audioUrl: string };
+      volume: number;
+    };
+
+export interface ServerHooks {
+  hub: Hub;
+  version: string;
+  /** Returns a clip for GET /tts/:id. */
+  ttsClip(id: string): { data: Buffer; mime: string } | undefined;
+  /** Overlay audio level, 0..1, for lip-sync. */
+  onMouth(level: number): void;
+  simulate(input: Record<string, unknown>): OjakgyoEvent;
+  chzzk?: {
+    beginLogin(): string;
+    completeLogin(code: string, state: string): Promise<string>;
+    logout(): Promise<void>;
+  };
+}
+
+type Client = { ws: WebSocket; role: string };
+
+export class OverlayServer {
+  private readonly server: Server;
+  private readonly wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+  private readonly clients = new Set<Client>();
+  private readonly allowedOrigins: Set<string>;
+  private readonly logs: LogRecord[] = [];
+
+  constructor(
+    private readonly host: string,
+    private readonly port: number,
+    private readonly hooks: ServerHooks,
+  ) {
+    this.allowedOrigins = new Set([
+      `http://localhost:${port}`,
+      `http://127.0.0.1:${port}`,
+      `http://[::1]:${port}`,
+      `http://${host}:${port}`,
+    ]);
+    this.server = createServer((req, res) => {
+      this.route(req, res).catch((err) => {
+        log.error(`${req.method} ${req.url}: ${errorMessage(err)}`);
+        if (!res.headersSent) sendJson(res, 500, { error: 'internal error' });
+      });
+    });
+    this.server.on('upgrade', (req, socket, head) => {
+      const url = new URL(req.url ?? '/', 'http://x');
+      if (url.pathname !== '/ws' || !this.originAllowed(req)) {
+        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      this.wss.handleUpgrade(req, socket, head, (ws) => this.accept(ws, url.searchParams.get('client') ?? 'unknown'));
+    });
+
+    hooks.hub.on('event', (event) => this.broadcast({ kind: 'event', event }));
+    hooks.hub.on('status', () => this.broadcast({ kind: 'status', statuses: hooks.hub.getStatuses() }, 'dashboard'));
+    onLog((record) => {
+      if (record.level === 'debug') return;
+      this.logs.push(record);
+      if (this.logs.length > 200) this.logs.shift();
+      this.broadcast({ kind: 'log', record }, 'dashboard');
+    });
+  }
+
+  get origin(): string {
+    const h = this.host === '0.0.0.0' || this.host === '::' ? 'localhost' : this.host;
+    return `http://${h === '127.0.0.1' ? 'localhost' : h}:${this.port}`;
+  }
+
+  listen(): Promise<void> {
+    return new Promise((resolveListen, reject) => {
+      this.server.once('error', reject);
+      this.server.listen(this.port, this.host, () => {
+        this.server.off('error', reject);
+        this.updateOverlayStatus();
+        resolveListen();
+      });
+    });
+  }
+
+  close(): Promise<void> {
+    for (const c of this.clients) c.ws.terminate();
+    return new Promise((r) => this.server.close(() => r()));
+  }
+
+  broadcast(message: OverlayMessage, role?: string): void {
+    const data = JSON.stringify(message);
+    for (const c of this.clients) {
+      if (role && c.role !== role) continue;
+      if (c.ws.readyState === c.ws.OPEN) c.ws.send(data);
+    }
+  }
+
+  overlayCount(role: string): number {
+    let n = 0;
+    for (const c of this.clients) if (c.role === role) n++;
+    return n;
+  }
+
+  private accept(ws: WebSocket, role: string): void {
+    const client: Client = { ws, role };
+    this.clients.add(client);
+    this.updateOverlayStatus();
+    if (role === 'dashboard') {
+      ws.send(JSON.stringify({ kind: 'status', statuses: this.hooks.hub.getStatuses() } satisfies OverlayMessage));
+    }
+    ws.on('message', (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString()) as { kind?: string; level?: number };
+        if (msg.kind === 'mouth' && typeof msg.level === 'number') this.hooks.onMouth(msg.level);
+      } catch {
+        /* ignore */
+      }
+    });
+    ws.on('close', () => {
+      this.clients.delete(client);
+      this.updateOverlayStatus();
+    });
+  }
+
+  private updateOverlayStatus(): void {
+    const alerts = this.overlayCount('alerts');
+    const chat = this.overlayCount('chat');
+    const total = alerts + chat;
+    this.hooks.hub.setStatus('overlay', 'Overlays', total > 0 ? 'connected' : 'disconnected', {
+      detail: total > 0 ? `${alerts} alert · ${chat} chat` : 'No overlay open. Add it as an OBS browser source',
+    });
+  }
+
+  private originAllowed(req: IncomingMessage): boolean {
+    const origin = req.headers.origin;
+    // Browser sources and same-origin pages send our own origin; CLI tools send none.
+    return origin === undefined || origin === 'null' || this.allowedOrigins.has(origin);
+  }
+
+  private async route(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const url = new URL(req.url ?? '/', 'http://x');
+    const path = url.pathname;
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    if (req.method === 'GET' && PAGES[path]) return this.serveFile(res, PAGES[path]!);
+    if (req.method === 'GET' && path.startsWith('/assets/')) return this.serveFile(res, path.slice(1));
+
+    if (req.method === 'GET' && path.startsWith('/tts/')) {
+      const clip = this.hooks.ttsClip(path.slice(5));
+      if (!clip) return sendJson(res, 404, { error: 'clip expired' });
+      res.writeHead(200, { 'Content-Type': clip.mime, 'Cache-Control': 'no-store' });
+      return void res.end(clip.data);
+    }
+
+    if (req.method === 'GET' && path === '/api/state') {
+      return sendJson(res, 200, {
+        version: this.hooks.version,
+        statuses: this.hooks.hub.getStatuses(),
+        events: this.hooks.hub.recentEvents(),
+        logs: this.logs,
+        overlays: { alerts: `${this.origin}/overlay/alerts`, chat: `${this.origin}/overlay/chat` },
+      });
+    }
+
+    if (req.method === 'POST' && path === '/api/simulate') {
+      if (!this.originAllowed(req)) return sendJson(res, 403, { error: 'forbidden origin' });
+      if (!String(req.headers['content-type'] ?? '').includes('application/json')) {
+        return sendJson(res, 415, { error: 'send application/json' });
+      }
+      const body = await readJson(req);
+      try {
+        const event = this.hooks.simulate(body);
+        return sendJson(res, 200, { ok: true, event });
+      } catch (err) {
+        return sendJson(res, 400, { error: errorMessage(err) });
+      }
+    }
+
+    const chzzk = this.hooks.chzzk;
+    if (path === '/auth/chzzk' && req.method === 'GET') {
+      if (!chzzk) return sendHtml(res, 400, page('CHZZK is not enabled', 'Set <code>platforms.chzzk.enabled: true</code> in ojakgyo.yaml.'));
+      res.writeHead(302, { Location: chzzk.beginLogin() });
+      return void res.end();
+    }
+    if (path === '/auth/chzzk/callback' && req.method === 'GET') {
+      if (!chzzk) return sendHtml(res, 400, page('CHZZK is not enabled', ''));
+      const code = url.searchParams.get('code');
+      const state = url.searchParams.get('state');
+      if (!code || !state) return sendHtml(res, 400, page('Login cancelled', 'No authorization code was returned.'));
+      try {
+        const name = await chzzk.completeLogin(code, state);
+        return sendHtml(res, 200, page('Connected ✨', `${name ? `<b>${escapeHtml(name)}</b> is` : 'Your channel is'} now bridged. You can close this tab.`));
+      } catch (err) {
+        return sendHtml(res, 400, page('Login failed', escapeHtml(errorMessage(err))));
+      }
+    }
+    if (path === '/api/chzzk/logout' && req.method === 'POST') {
+      if (!this.originAllowed(req)) return sendJson(res, 403, { error: 'forbidden origin' });
+      await chzzk?.logout();
+      return sendJson(res, 200, { ok: true });
+    }
+
+    sendJson(res, 404, { error: 'not found' });
+  }
+
+  private async serveFile(res: ServerResponse, relative: string): Promise<void> {
+    const target = normalize(join(WEB_ROOT, relative));
+    if (!target.startsWith(WEB_ROOT + sep)) return sendJson(res, 403, { error: 'forbidden' });
+    try {
+      const data = await readFile(target);
+      res.writeHead(200, {
+        'Content-Type': MIME[extname(target).toLowerCase()] ?? 'application/octet-stream',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(data);
+    } catch {
+      sendJson(res, 404, { error: 'not found' });
+    }
+  }
+}
+
+function sendJson(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(body));
+}
+
+function sendHtml(res: ServerResponse, status: number, html: string): void {
+  res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(html);
+}
+
+async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    size += (chunk as Buffer).length;
+    if (size > 64 * 1024) throw new Error('body too large');
+    chunks.push(chunk as Buffer);
+  }
+  try {
+    const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as unknown;
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+}
+
+function page(title: string, body: string): string {
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><title>${escapeHtml(title)} · ojakgyo</title>
+<link rel="stylesheet" href="/assets/ojakgyo.css"><body class="callback"><main class="card"><h1>${escapeHtml(title)}</h1><p>${body}</p><a href="/">Open dashboard →</a></main></body></html>`;
+}

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ojakgyo · dashboard</title>
+  <link rel="icon" href="/assets/logo.svg" />
+  <link rel="stylesheet" href="/assets/ojakgyo.css" />
+</head>
+<body class="dash">
+  <div class="sky" id="sky"></div>
+  <div class="wrap">
+    <header class="top">
+      <img class="logo" src="/assets/logo.svg" alt="" />
+      <div>
+        <h1>ojakgyo <small>오작교</small></h1>
+        <p>Chat &amp; donations from Korean platforms, bridged to your avatar.</p>
+      </div>
+      <span class="ver" id="ver">v—</span>
+    </header>
+
+    <section class="status-row" id="statuses"></section>
+
+    <div class="grid">
+      <div>
+        <section class="panel">
+          <h2>🧪 Test bench</h2>
+          <div class="tabs" id="tabs">
+            <button data-type="donation" class="on">Donation</button>
+            <button data-type="chat">Chat</button>
+            <button data-type="subscription">Subscription</button>
+          </div>
+          <form id="sim">
+            <label class="f" for="nick">Nickname</label>
+            <input class="t" id="nick" value="별빛시청자" maxlength="30" />
+            <div id="amountBox">
+              <label class="f" for="amount">Amount (KRW)</label>
+              <input class="t" id="amount" type="number" min="0" step="100" value="5000" />
+              <div class="chips" id="amountChips">
+                <button type="button" data-v="1000">1,000</button>
+                <button type="button" data-v="5000">5,000</button>
+                <button type="button" data-v="10000">10,000</button>
+                <button type="button" data-v="50000">50,000</button>
+                <button type="button" data-v="1004">👼 1,004</button>
+              </div>
+            </div>
+            <div id="subBox" hidden>
+              <label class="f" for="months">Months</label>
+              <input class="t" id="months" type="number" min="1" value="3" />
+            </div>
+            <label class="f" for="msg">Message</label>
+            <textarea class="t" id="msg" maxlength="200">오늘 방송도 너무 재밌어요ㅋㅋㅋㅋㅋㅋ 화이팅!</textarea>
+            <button class="btn block" type="submit">✦ Send test event</button>
+          </form>
+        </section>
+
+        <section class="panel urls">
+          <h2>📺 OBS browser sources</h2>
+          <div class="u"><code id="urlAlerts">…</code><span>1920×1080</span><button class="btn small ghost" data-copy="urlAlerts">Copy</button></div>
+          <div class="u"><code id="urlChat">…</code><span>500×800</span><button class="btn small ghost" data-copy="urlChat">Copy</button></div>
+        </section>
+      </div>
+
+      <div>
+        <section class="panel">
+          <h2>✨ Live events <span class="count" id="evCount">0</span></h2>
+          <div class="feed" id="feed"><div class="empty">Waiting for chat, donations and subscriptions…<br/>Try the test bench on the left.</div></div>
+        </section>
+        <section class="panel">
+          <h2>📜 Log</h2>
+          <div class="logs" id="logs"></div>
+        </section>
+      </div>
+    </div>
+
+    <footer class="foot">
+      Made for Korean VTubers · <a href="https://github.com/BudongJW/ojakgyo" target="_blank" rel="noopener">github.com/BudongJW/ojakgyo</a>
+    </footer>
+  </div>
+  <script type="module" src="/assets/dashboard.js"></script>
+</body>
+</html>
