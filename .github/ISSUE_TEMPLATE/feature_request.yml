@@ -1,0 +1,21 @@
+name: ✨ Feature request
+description: An idea for a platform, action or overlay
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do on stream?
+      description: Describe the moment you want to create, e.g. "when someone donates 5,252원, my avatar dances".
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could ojakgyo help?
+  - type: checkboxes
+    id: streamer
+    attributes:
+      label: About you
+      options:
+        - label: I stream as a VTuber and would use this myself

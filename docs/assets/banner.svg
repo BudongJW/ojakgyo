@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" width="1280" height="420" role="img" aria-label="ojakgyo: the magpie bridge between Korean live chat and your VTuber avatar">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#05071a"/>
+      <stop offset="0.6" stop-color="#121848"/>
+      <stop offset="1" stop-color="#2a1f5e"/>
+    </linearGradient>
+    <radialGradient id="nebulaPink" cx="0.82" cy="0.1" r="0.55">
+      <stop offset="0" stop-color="#ff7ac6" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ff7ac6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nebulaBlue" cx="0.12" cy="0.2" r="0.5">
+      <stop offset="0" stop-color="#7ad7ff" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#7ad7ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="milky" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#c9c3ff" stop-opacity="0.11"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff7ac6"/>
+      <stop offset="0.5" stop-color="#ffd27a"/>
+      <stop offset="1" stop-color="#7ad7ff"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ffe3f3"/>
+    </linearGradient>
+    <radialGradient id="glowPink"><stop offset="0" stop-color="#ff7ac6" stop-opacity="0.95"/><stop offset="1" stop-color="#ff7ac6" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glowBlue"><stop offset="0" stop-color="#7ad7ff" stop-opacity="0.95"/><stop offset="1" stop-color="#7ad7ff" stop-opacity="0"/></radialGradient>
+    <symbol id="bird" viewBox="0 0 24 14">
+      <path class="flap" d="M0 9 C5 3 9 2 12 6 C15 2 19 3 24 9 C19 6 15 7 12 10 C9 7 5 6 0 9 Z"/>
+    </symbol>
+    <style>
+      .tw { animation: tw 3.6s ease-in-out infinite; }
+      .tw2 { animation: tw 5.2s ease-in-out infinite; animation-delay: 1.3s; }
+      @keyframes tw { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+      .flap { animation: flap 1.6s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      @keyframes flap { 0%,100% { transform: scaleY(1) } 50% { transform: scaleY(.55) } }
+    </style>
+  </defs>
+
+  <rect width="1280" height="420" fill="url(#sky)"/>
+  <rect width="1280" height="420" fill="url(#nebulaPink)"/>
+  <rect width="1280" height="420" fill="url(#nebulaBlue)"/>
+  <path d="M-40 420 C 300 250, 900 260, 1320 -20 L 1320 120 C 900 330, 300 330, -40 520 Z" fill="url(#milky)"/>
+
+  <g fill="#fff">
+    <circle class="tw" cx="62" cy="48" r="1.6"/><circle class="tw2" cx="140" cy="120" r="1.1"/><circle cx="220" cy="36" r="1.3" opacity=".6"/>
+    <circle class="tw" cx="318" cy="88" r="1"/><circle cx="402" cy="30" r="1.5" opacity=".7"/><circle class="tw2" cx="488" cy="128" r="1.2"/>
+    <circle cx="566" cy="56" r="1" opacity=".5"/><circle class="tw" cx="704" cy="34" r="1.4"/><circle cx="790" cy="104" r="1" opacity=".6"/>
+    <circle class="tw2" cx="868" cy="44" r="1.6"/><circle cx="952" cy="132" r="1.1" opacity=".5"/><circle class="tw" cx="1034" cy="70" r="1.3"/>
+    <circle cx="1118" cy="28" r="1" opacity=".7"/><circle class="tw2" cx="1196" cy="96" r="1.5"/><circle cx="1250" cy="186" r="1" opacity=".5"/>
+    <circle cx="36" cy="220" r="1" opacity=".5"/><circle class="tw" cx="1236" cy="300" r="1.2"/><circle cx="96" cy="350" r="1.2" opacity=".6"/>
+    <circle class="tw2" cx="1160" cy="380" r="1"/><circle cx="640" cy="400" r="1" opacity=".4"/>
+  </g>
+
+  <!-- magpie bridge -->
+  <path d="M250 350 Q640 170 1030 350" fill="none" stroke="url(#arc)" stroke-width="2.5" stroke-dasharray="2 10" stroke-linecap="round" opacity="0.55"/>
+  <g fill="url(#arc)">
+    <use href="#bird" x="311" y="302" width="34" height="20"/>
+    <use href="#bird" x="373" y="281" width="34" height="20"/>
+    <use href="#bird" x="436" y="265" width="34" height="20"/>
+    <use href="#bird" x="498" y="253" width="34" height="20"/>
+    <use href="#bird" x="561" y="246" width="34" height="20"/>
+    <use href="#bird" x="623" y="244" width="34" height="20"/>
+    <use href="#bird" x="685" y="246" width="34" height="20"/>
+    <use href="#bird" x="748" y="253" width="34" height="20"/>
+    <use href="#bird" x="810" y="265" width="34" height="20"/>
+    <use href="#bird" x="873" y="281" width="34" height="20"/>
+    <use href="#bird" x="935" y="302" width="34" height="20"/>
+  </g>
+
+  <!-- two stars: your chat on one side, your avatar on the other -->
+  <circle cx="232" cy="350" r="54" fill="url(#glowPink)"/>
+  <circle cx="1048" cy="350" r="54" fill="url(#glowBlue)"/>
+  <path d="M232 324 l6 20 l20 6 l-20 6 l-6 20 l-6 -20 l-20 -6 l20 -6 z" fill="#ffe3f3"/>
+  <path d="M1048 324 l6 20 l20 6 l-20 6 l-6 20 l-6 -20 l-20 -6 l20 -6 z" fill="#e3f7ff"/>
+  <text x="232" y="406" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#ffb8de" letter-spacing="2">LIVE CHAT</text>
+  <text x="1048" y="406" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#a9e6ff" letter-spacing="2">YOUR AVATAR</text>
+
+  <!-- wordmark -->
+  <text x="640" y="104" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="78" font-weight="800" fill="url(#title)" letter-spacing="-1">ojakgyo</text>
+  <text x="640" y="142" text-anchor="middle" font-family="'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif" font-size="22" font-weight="600" fill="#c8c4ff" letter-spacing="10">오 작 교</text>
+  <text x="640" y="186" text-anchor="middle" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="21" fill="#e6e4ff" opacity="0.9">The magpie bridge between Korean live-stream chat and your VTuber setup</text>
+</svg>

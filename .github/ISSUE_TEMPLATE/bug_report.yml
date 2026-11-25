@@ -1,0 +1,39 @@
+name: 🐛 Bug report
+description: Something on the bridge isn't working
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Rule config (remove your keys!)
+        2. Event that triggered it
+        3. ...
+  - type: input
+    id: version
+    attributes:
+      label: ojakgyo version
+      placeholder: "0.1.0 (run `ojakgyo --version`)"
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Streaming platform
+      options: [CHZZK, SOOP, CIME, Test bench only, Other]
+  - type: input
+    id: env
+    attributes:
+      label: OS, Node.js, VTube Studio and OBS versions
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Run with `--debug` and paste the relevant lines. Logs never contain your tokens, but double-check before posting.
+      render: text
