@@ -1,0 +1,66 @@
+{
+  "name": "ojakgyo",
+  "version": "0.1.0",
+  "description": "The magpie bridge between Korean live-streaming platforms and your VTuber setup. Route CHZZK chat, donations and subscriptions to VTube Studio, OBS, browser overlays and Korean TTS.",
+  "keywords": [
+    "vtuber",
+    "chzzk",
+    "soop",
+    "vtube-studio",
+    "obs",
+    "obs-websocket",
+    "streaming",
+    "overlay",
+    "donation-alert",
+    "tts",
+    "korean",
+    "live2d"
+  ],
+  "license": "MIT",
+  "author": "BudongJW",
+  "homepage": "https://github.com/BudongJW/ojakgyo#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BudongJW/ojakgyo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/BudongJW/ojakgyo/issues"
+  },
+  "type": "module",
+  "bin": {
+    "ojakgyo": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "web",
+    "ojakgyo.example.yaml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.ts start",
+    "start": "node dist/cli.js start",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "simulate": "tsx src/cli.ts simulate"
+  },
+  "dependencies": {
+    "ws": "^8.23.0",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.7",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.2"
+  }
+}

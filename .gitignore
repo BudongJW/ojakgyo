@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+*.log
+
+# your local setup: never commit keys or tokens
+.env
+.env.*
+!.env.example
+.ojakgyo/
+ojakgyo.yaml
+ojakgyo.yml
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
