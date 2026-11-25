@@ -1,0 +1,101 @@
+# ─────────────────────────────────────────────────────────────
+#  ojakgyo · 오작교 — example configuration
+#  Values like ${CHZZK_CLIENT_ID} are read from the environment
+#  or from a .env file next to this config.
+# ─────────────────────────────────────────────────────────────
+
+server:
+  host: 127.0.0.1        # keep it local; overlays are loaded by OBS on this machine
+  port: 7979
+
+platforms:
+  chzzk:
+    enabled: true
+    clientId: ${CHZZK_CLIENT_ID}
+    clientSecret: ${CHZZK_CLIENT_SECRET}
+    # Scopes to enable on your app: 유저 정보 조회, 채팅 메시지 조회, 후원 조회, 구독 조회
+    # (+ 채팅 메시지 쓰기 if you use chat.send)
+    events: [chat, donation, subscription]
+
+outputs:
+  vtubeStudio:
+    enabled: true
+    url: ws://127.0.0.1:8001   # VTube Studio → Settings → Start API
+    lipSync:
+      enabled: false           # move the avatar's mouth while TTS speaks
+      parameter: MouthOpen
+      gain: 1.6
+
+  obs:
+    enabled: false
+    url: ws://127.0.0.1:4455   # OBS → Tools → WebSocket Server Settings
+    password: ${OBS_PASSWORD}
+
+  tts:
+    # none | browser | openai | gpt-sovits
+    # browser    → zero setup, uses the OS voices through the overlay
+    # openai     → any OpenAI-compatible /v1/audio/speech server (local or hosted)
+    # gpt-sovits → a GPT-SoVITS api_v2 server with your character's voice
+    provider: browser
+    language: ko
+    maxLength: 120
+    blockedWords: []
+    collapseRepeats: 3         # ㅋㅋㅋㅋㅋㅋㅋ → ㅋㅋㅋ
+    volume: 0.9
+
+anonymousName: 익명의 후원자
+
+# ─────────────────────────────────────────────────────────────
+#  Rules: when <event> matches <conditions>, run <actions>.
+#  Template variables: {nickname} {message} {amount} {amountRaw}
+#                      {tier} {months} {platform} {type} {role}
+# ─────────────────────────────────────────────────────────────
+rules:
+  - name: Donation alert
+    on: donation
+    actions:
+      - type: overlay.alert
+        title: "{nickname} 님 {amount}원 후원!"
+        message: "{message}"
+        tts: "{nickname}님, {amount}원 후원 감사합니다. {message}"
+        duration: 7
+
+  - name: Big donation party
+    on: donation
+    when: { minAmount: 10000 }
+    cooldown: 5
+    actions:
+      - type: vts.hotkey
+        hotkey: Heart Eyes      # a hotkey name from your model
+      - type: vts.tint
+        color: "#ff8fc7"
+        duration: 4
+
+  - name: Angel donation 1004
+    on: donation
+    when: { amounts: [1004, 10004] }
+    actions:
+      - type: overlay.alert
+        title: "👼 천사 후원 {amount}원"
+        message: "{nickname} 님 고마워요!"
+        accent: "#ffe58a"
+
+  - name: New subscriber
+    on: subscription
+    actions:
+      - type: overlay.alert
+        title: "{nickname} 님 {months}개월 구독!"
+        message: "티어 {tier} · 환영합니다"
+        tts: "{nickname}님 {months}개월 구독 감사합니다!"
+        accent: "#8fd3ff"
+
+  - name: "!hat command"
+    on: chat
+    when: { match: "^!모자$" }
+    cooldown: 30
+    actions:
+      - type: vts.item
+        file: hat.png           # a file in VTube Studio's Items folder
+        y: 0.75
+        size: 0.25
+        duration: 20
