@@ -216,6 +216,10 @@ const AvatarSchema = z.object({
   view: z.enum(['bust', 'full']).default('bust'),
   /** Move the mouth while donation TTS plays. */
   lipSync: z.boolean().default(true),
+  /** Where /tracker fetches the MediaPipe face model on first use (cached in .ojakgyo/models). */
+  faceModelUrl: z
+    .url()
+    .default('https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'),
 });
 
 const TtsSchema = z.object({

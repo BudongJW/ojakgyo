@@ -35,6 +35,7 @@ const PAGES: Record<string, string> = {
   '/overlay/alerts': 'overlay-alerts.html',
   '/overlay/chat': 'overlay-chat.html',
   '/overlay/avatar': 'overlay-avatar.html',
+  '/tracker': 'tracker.html',
 };
 
 /**
@@ -42,9 +43,11 @@ const PAGES: Record<string, string> = {
  * so the overlay works offline and without a bundler. Only .js files are served.
  */
 const require = createRequire(import.meta.url);
-function packageRoot(entry: string): string | null {
+function packageRoot(entry: string, depth = 2): string | null {
   try {
-    return dirname(dirname(require.resolve(entry)));
+    let dir = require.resolve(entry);
+    for (let i = 0; i < depth; i++) dir = dirname(dir);
+    return dir;
   } catch {
     return null;
   }
@@ -52,7 +55,34 @@ function packageRoot(entry: string): string | null {
 export const VENDOR_ROOTS: Record<string, string | null> = {
   three: packageRoot('three'),
   'three-vrm': packageRoot('@pixiv/three-vrm'),
+  mediapipe: packageRoot('@mediapipe/tasks-vision', 1),
 };
+const VENDOR_TYPES: Record<string, string> = {
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.wasm': 'application/wasm',
+};
+
+/** One webcam frame from /tracker: ARKit-named blendshapes (0..1) and head rotation in radians. */
+export interface FaceFrame {
+  blend: Record<string, number>;
+  head: [number, number, number];
+}
+
+/** Accept only well-formed, bounded face frames before relaying them. */
+export function sanitizeFace(msg: unknown): FaceFrame | null {
+  const m = msg as { blend?: unknown; head?: unknown };
+  if (!m || typeof m.blend !== 'object' || m.blend === null || !Array.isArray(m.head) || m.head.length !== 3) return null;
+  const blend: Record<string, number> = {};
+  let n = 0;
+  for (const [k, v] of Object.entries(m.blend as Record<string, unknown>)) {
+    if (++n > 64) break;
+    if (!/^[A-Za-z_]{1,40}$/.test(k) || typeof v !== 'number' || !Number.isFinite(v)) continue;
+    blend[k] = Math.max(0, Math.min(1, v));
+  }
+  const head = m.head.map((v) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(-Math.PI, Math.min(Math.PI, v)) : 0));
+  return { blend, head: head as [number, number, number] };
+}
 
 export type OverlayMessage =
   | { kind: 'event'; event: OjakgyoEvent }
@@ -60,6 +90,7 @@ export type OverlayMessage =
   | { kind: 'log'; record: LogRecord }
   | { kind: 'mouth'; level: number }
   | { kind: 'avatar'; expression: string; weight: number; duration: number }
+  | ({ kind: 'face' } & FaceFrame)
   | {
       kind: 'alert';
       id: string;
@@ -90,6 +121,8 @@ export interface ServerHooks {
     /** Absolute path of the configured .vrm, or null. Never sent to the browser. */
     modelPath: string | null;
   };
+  /** Path to the MediaPipe face model, downloading it on first use. */
+  faceModel(): Promise<string>;
   chzzk?: {
     beginLogin(): string;
     completeLogin(code: string, state: string): Promise<string>;
@@ -181,6 +214,7 @@ export class OverlayServer {
   private accept(ws: WebSocket, role: string): void {
     const client: Client = { ws, role };
     this.clients.add(client);
+    if (role === 'tracker') log.info('face tracker connected');
     this.updateOverlayStatus();
     if (role === 'dashboard') {
       ws.send(JSON.stringify({ kind: 'status', statuses: this.hooks.hub.getStatuses() } satisfies OverlayMessage));
@@ -188,6 +222,11 @@ export class OverlayServer {
     ws.on('message', (raw) => {
       try {
         const msg = JSON.parse(raw.toString()) as { kind?: string; level?: number; perfectSync?: unknown; expressions?: unknown; vrmVersion?: unknown };
+        if (msg.kind === 'face' && role === 'tracker') {
+          const frame = sanitizeFace(msg);
+          if (frame) this.broadcast({ kind: 'face', ...frame }, 'avatar');
+          return;
+        }
         if (msg.kind === 'avatar-info' && role === 'avatar') {
           const ps = msg.perfectSync === true ? 'Perfect Sync (ARKit) face' : 'VRM preset face';
           log.info(`avatar loaded: VRM ${String(msg.vrmVersion ?? '?').slice(0, 8)}, ${Number(msg.expressions) || 0} expressions, ${ps}`);
@@ -203,6 +242,7 @@ export class OverlayServer {
     });
     ws.on('close', () => {
       this.clients.delete(client);
+      if (role === 'tracker') log.info('face tracker disconnected');
       this.updateOverlayStatus();
     });
   }
@@ -230,6 +270,17 @@ export class OverlayServer {
 
     if (req.method === 'GET' && PAGES[path]) return this.serveFile(res, PAGES[path]!);
     if (req.method === 'GET' && path.startsWith('/assets/')) return this.serveFile(res, path.slice(1));
+    if (req.method === 'GET' && path === '/vendor/models/face_landmarker.task') {
+      try {
+        const file = await this.hooks.faceModel();
+        const info = await stat(file);
+        res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': info.size, 'Cache-Control': 'max-age=86400' });
+        createReadStream(file).pipe(res);
+      } catch (err) {
+        sendJson(res, 502, { error: `face model unavailable: ${errorMessage(err)}` });
+      }
+      return;
+    }
     if (req.method === 'GET' && path.startsWith('/vendor/')) return this.serveVendor(res, path.slice('/vendor/'.length));
 
     if (req.method === 'GET' && path === '/api/avatar') {
@@ -313,12 +364,13 @@ export class OverlayServer {
     const slash = rest.indexOf('/');
     const root = slash > 0 ? VENDOR_ROOTS[rest.slice(0, slash)] : null;
     const relative = slash > 0 ? rest.slice(slash + 1) : '';
-    if (!root || extname(relative) !== '.js') return sendJson(res, 404, { error: 'not found' });
+    const type = VENDOR_TYPES[extname(relative)];
+    if (!root || !type) return sendJson(res, 404, { error: 'not found' });
     const target = normalize(join(root, relative));
     if (!target.startsWith(root + sep)) return sendJson(res, 403, { error: 'forbidden' });
     try {
       const data = await readFile(target);
-      res.writeHead(200, { 'Content-Type': MIME['.js']!, 'Cache-Control': 'max-age=3600' });
+      res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'max-age=3600' });
       res.end(data);
     } catch {
       sendJson(res, 404, { error: 'not found' });

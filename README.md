@@ -128,7 +128,7 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
   <tr>
     <td colspan="2" valign="top">
       <h3>🧍 3D VRM avatar overlay</h3>
-      No VTube Studio? Point ojakgyo at a <b>.vrm</b> file (VRoid Studio exports one) and add <code>/overlay/avatar</code> to OBS. The avatar idles, blinks and looks at the viewer, <b>lip-syncs to donation TTS</b>, and reacts to events with the <code>avatar.expression</code> action. Works with VRM 0.x and 1.0 through <a href="https://github.com/pixiv/three-vrm">three-vrm</a>, uses <b>Perfect Sync</b> (ARKit 52) faces when your model has them, and <code>ojakgyo avatar optimize</code> cuts heavy VRoid exports by 35–60%.
+      No VTube Studio? Point ojakgyo at a <b>.vrm</b> file (VRoid Studio exports one) and add <code>/overlay/avatar</code> to OBS. The avatar idles, blinks and looks at the viewer, <b>lip-syncs to donation TTS</b>, reacts to events with the <code>avatar.expression</code> action, and <b>follows your face from a webcam</b> (MediaPipe, in the browser). Works with VRM 0.x and 1.0 through <a href="https://github.com/pixiv/three-vrm">three-vrm</a>, uses <b>Perfect Sync</b> (ARKit 52) faces when your model has them, and <code>ojakgyo avatar optimize</code> cuts heavy VRoid exports by 35–60%.
     </td>
   </tr>
 </table>
@@ -267,6 +267,23 @@ Always check the license stored inside a VRM before streaming with it; it can di
 
 **Perfect Sync models.** If your VRM carries the 52 ARKit blendshapes ("Perfect Sync", e.g. `JawOpen`, `EyeBlinkLeft`), the overlay detects them and uses the jaw and eyelid shapes for lip-sync and blinking instead of the basic presets. The dashboard log tells you which mode was picked.
 
+#### Webcam face tracking
+
+OBS browser sources cannot open a camera, so tracking runs in a normal browser window and streams the result to the overlay.
+
+1. Open `http://localhost:7979/tracker` in Chrome or Edge (or click **Open face tracker** on the dashboard).
+2. Pick your camera and press **Start**. The first start downloads Google's MediaPipe face model (about 4 MB) once and keeps it in `.ojakgyo/models`.
+3. Sit as you normally stream, look straight at the screen and press **Set neutral pose**. This cancels the tilt a camera above or below your monitor adds; it is remembered for next time.
+
+The overlay switches to your face as soon as frames arrive and eases back to idle animation if the tracker stops. Perfect Sync models get all 52 shapes; other VRMs get blink (each eye), mouth open, `ou`, `ee` and smile mapped onto their presets. Rule-driven expressions still win while they play. **Mirror** (on by default) moves the avatar like your reflection.
+
+<div align="center">
+  <img src="docs/assets/face-tracker.png" alt="The face tracker page following a turned head, and the avatar overlay turning the same way" width="100%" />
+  <br/><sub>Fed with a rendered test head instead of a webcam: head scan by Lee Perry-Smith (Infinite Realities, CC BY 3.0). Avatar: VRoid sample Sakurada Fumiriya (CC0).</sub>
+</div>
+
+Camera frames never leave the browser tab. Only the blendshape values and head angles (a few hundred bytes, up to 30 times a second) go to the bridge on `localhost`. Keep the tracker window visible while streaming, because browsers throttle hidden tabs.
+
 #### Make it load fast
 
 VRoid exports spend most of their bytes on textures, often several 2048² sheets. Shrink them before going live:
@@ -302,7 +319,7 @@ rules:
 ```
 
 > [!NOTE]
-> The avatar overlay animates on its own (breathing, blinking, gaze) and lip-syncs to TTS. It does **not** track your face yet; for face tracking keep using VTube Studio or another tracker. The model file is read from your disk and served only to `localhost`. It is never uploaded, and ojakgyo does not bundle any model. Check the license embedded in your VRM before streaming with it.
+> Without the tracker, the avatar overlay animates on its own (breathing, blinking, gaze) and lip-syncs to TTS. Body and hand tracking are not supported. The model file is read from your disk and served only to `localhost`. It is never uploaded, and ojakgyo does not bundle any model. Check the license embedded in your VRM before streaming with it.
 
 ## 🧩 Rules
 
@@ -428,7 +445,7 @@ outputs:
 - [x] Korean TTS: browser, OpenAI-compatible, GPT-SoVITS
 - [x] 3D VRM avatar overlay with TTS lip-sync and rule-driven expressions
 - [x] Perfect Sync (ARKit 52) faces and `ojakgyo avatar optimize` for lighter VRMs
-- [ ] Webcam face tracking for the 3D avatar (MediaPipe, ARKit-compatible output)
+- [x] Webcam face tracking for the 3D avatar (MediaPipe, ARKit-compatible output)
 - [ ] 2D avatars: Inochi2D puppets as an overlay
 - [ ] **SOOP** connector (official Chat SDK through a headless relay)
 - [ ] **CIME** connector
@@ -454,7 +471,7 @@ Found a vulnerability? See [SECURITY.md](SECURITY.md).
 <details>
 <summary><b>Do I need a GPU?</b></summary>
 
-No. ojakgyo is an event bridge. Only an optional local TTS engine (such as GPT-SoVITS) benefits from a GPU.
+No. ojakgyo is an event bridge. The webcam tracker uses the browser's GPU when it can and falls back to the CPU, and only an optional local TTS engine (such as GPT-SoVITS) really benefits from a GPU.
 </details>
 
 <details>
@@ -462,7 +479,7 @@ No. ojakgyo is an event bridge. Only an optional local TTS engine (such as GPT-S
 
 No. For Live2D models, VTube Studio loads and renders your model, and ojakgyo drives it through VTube Studio's public plugin API. No Live2D Cubism code or sample models are bundled.
 
-For 3D VRM models, ojakgyo can render the avatar itself with the MIT-licensed three-vrm library (see [3D avatar](#-3d-avatar-vrm)). It does not do face tracking yet, so it complements a tracker rather than replacing one.
+For 3D VRM models, ojakgyo can render the avatar itself with the MIT-licensed three-vrm library (see [3D avatar](#-3d-avatar-vrm)). Its webcam tracker covers the face (expressions and head turn); for hand or full-body tracking keep using a dedicated tracker.
 </details>
 
 <details>

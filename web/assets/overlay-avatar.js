@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { connect, el } from './client.js';
+import { headRotation, smooth, toVrmPresets } from './face-map.js';
 
 const params = new URLSearchParams(location.search);
 if (params.has('preview')) document.body.classList.add('preview');
@@ -41,7 +42,15 @@ const active = new Map(); // expression -> { weight, start, until }
 let nextBlink = 1.5;
 // Expression names resolved once per model. Perfect Sync models (ARKit 52) get their
 // jaw and eyelid shapes driven directly; plain VRMs fall back to the VRM presets.
-let rig = { blink: [], mouth: [], mouthShape: null, perfectSync: false };
+let rig = { blink: [], mouth: [], mouthShape: null, perfectSync: false, names: new Map() };
+// Latest webcam frame from /tracker (already mirrored there), smoothed.
+const face = { blend: null, head: [0, 0, 0], at: 0 };
+const faceActive = () => performance.now() - face.at < 500;
+// 0 = idle animation, 1 = webcam. Eased, so the avatar settles back to idle instead of
+// freezing mid-wink when the tracker window closes or stalls.
+let faceMix = 0;
+// Expressions written last frame; anything not written this frame goes back to 0.
+let lastWritten = new Set();
 
 function resolveRig(em) {
   const names = new Map(em.expressions.map((e) => [e.expressionName.toLowerCase(), e.expressionName]));
@@ -51,6 +60,7 @@ function resolveRig(em) {
   const blinkR = find('eyeBlinkRight');
   const perfectSync = Boolean(jaw && blinkL && blinkR);
   return {
+    names,
     perfectSync,
     blink: perfectSync ? [blinkL, blinkR] : [find('blink')].filter(Boolean),
     // Jaw drives the opening; a little 'aa' keeps the VRM mouth shape (teeth, tongue) in play.
@@ -119,8 +129,17 @@ function applyPose(t) {
   set('rightLowerArm', 0, 0, 0.12 * s);
   set('spine', breath * 0.012, 0, 0);
   set('chest', breath * 0.018, 0, 0);
-  set('neck', 0, Math.sin(t * 0.45) * 0.04, 0);
-  set('head', Math.sin(t * 0.6) * 0.025, Math.sin(t * 0.33) * 0.07, Math.sin(t * 0.27) * 0.035);
+  let neck = [0, Math.sin(t * 0.45) * 0.04, 0];
+  let head = [Math.sin(t * 0.6) * 0.025, Math.sin(t * 0.33) * 0.07, Math.sin(t * 0.27) * 0.035];
+  if (faceMix > 0) {
+    // Split the tracked head rotation between neck and head so the turn looks natural.
+    const tracked = headRotation(face.head, { mirror: false, vrm0: s === -1 });
+    const blend = (idle, share) => idle.map((v, i) => v + (tracked[i] * share - v) * faceMix);
+    neck = blend(neck, 0.4);
+    head = blend(head, 0.6);
+  }
+  set('neck', ...neck);
+  set('head', ...head);
 }
 
 function blinkWeight(t) {
@@ -136,32 +155,61 @@ function expressionWeight(entry, t) {
   return entry.weight * fadeIn * fadeOut;
 }
 
+/** Webcam expressions: all 52 shapes on Perfect Sync models, the VRM presets otherwise. */
+function faceWeights(add, mix) {
+  if (rig.perfectSync) {
+    for (const [key, value] of Object.entries(face.blend)) add(rig.names.get(key.toLowerCase()), value * mix);
+    return;
+  }
+  const p = toVrmPresets(face.blend);
+  const name = (n) => rig.names.get(n.toLowerCase());
+  if (name('blinkLeft') && name('blinkRight')) {
+    add(name('blinkLeft'), p.blinkLeft * mix);
+    add(name('blinkRight'), p.blinkRight * mix);
+  } else {
+    add(name('blink'), ((p.blinkLeft + p.blinkRight) / 2) * mix);
+  }
+  for (const key of ['aa', 'ou', 'ee', 'happy']) add(name(key), p[key] * mix);
+}
+
+/** No webcam: idle blinking and TTS-driven lip-sync. */
+function idleWeights(add, t, mix) {
+  const blink = blinkWeight(t);
+  for (const name of rig.blink) add(name, blink * mix);
+  const open = Math.min(1, mouth.value);
+  // ARKit jawOpen = 1 is a yawn; speech lives in roughly the lower half of the range.
+  for (const name of rig.mouth) add(name, (rig.perfectSync ? open * 0.55 : open) * mix);
+  if (rig.mouthShape) add(rig.mouthShape, open * 0.3 * mix);
+}
+
 const clock = new THREE.Clock();
 function tick() {
   requestAnimationFrame(tick);
   const delta = Math.min(clock.getDelta(), 0.1);
   const t = clock.elapsedTime;
   if (vrm) {
+    const target = faceActive() && face.blend ? 1 : 0;
+    faceMix += (target - faceMix) * Math.min(1, delta * 6);
+    if (Math.abs(target - faceMix) < 0.01) faceMix = target;
+    if (performance.now() - mouth.lastSignal > 180) mouth.target = 0;
+    mouth.value += (mouth.target - mouth.value) * Math.min(1, delta * 18);
     applyPose(t);
     const em = vrm.expressionManager;
     if (em) {
-      // Emotion first, so blink/mouth overrides defined by the model apply on top.
+      const weights = new Map();
+      const add = (name, v) => {
+        if (name && v > 0) weights.set(name, (weights.get(name) ?? 0) + v);
+      };
+      if (faceMix > 0) faceWeights(add, faceMix);
+      if (faceMix < 1) idleWeights(add, t, 1 - faceMix);
+      // Rule-driven emotions win over tracked and idle values with the same name.
       for (const [name, entry] of active) {
-        const w = expressionWeight(entry, t);
-        if (em.getExpression(name)) em.setValue(name, w);
-        if (t > entry.until + 0.45) {
-          if (em.getExpression(name)) em.setValue(name, 0);
-          active.delete(name);
-        }
+        if (em.getExpression(name)) weights.set(name, expressionWeight(entry, t));
+        if (t > entry.until + 0.45) active.delete(name);
       }
-      const blink = blinkWeight(t);
-      for (const name of rig.blink) em.setValue(name, blink);
-      if (performance.now() - mouth.lastSignal > 180) mouth.target = 0;
-      mouth.value += (mouth.target - mouth.value) * Math.min(1, delta * 18);
-      const open = Math.min(1, mouth.value);
-      // ARKit jawOpen = 1 is a yawn; speech lives in roughly the lower half of the range.
-      for (const name of rig.mouth) em.setValue(name, rig.perfectSync ? open * 0.55 : open);
-      if (rig.mouthShape) em.setValue(rig.mouthShape, open * 0.3);
+      for (const name of lastWritten) if (!weights.has(name)) em.setValue(name, 0);
+      for (const [name, v] of weights) em.setValue(name, Math.min(1, v));
+      lastWritten = new Set(weights.keys());
     }
     vrm.update(delta);
   }
@@ -173,6 +221,10 @@ const bridge = connect('avatar', (msg) => {
   if (msg.kind === 'mouth') {
     mouth.target = Math.max(0, Math.min(1, msg.level * 1.4));
     mouth.lastSignal = performance.now();
+  } else if (msg.kind === 'face') {
+    face.blend = smooth(face.blend, msg.blend, 0.6);
+    face.head = face.at ? face.head.map((v, i) => v + (msg.head[i] - v) * 0.5) : msg.head;
+    face.at = performance.now();
   } else if (msg.kind === 'avatar') {
     const t = clock.elapsedTime;
     active.set(msg.expression, { weight: msg.weight ?? 1, start: t, until: t + (msg.duration ?? 3) });
@@ -193,6 +245,14 @@ async function main() {
     return;
   }
   document.title = 'ojakgyo · avatar · ready';
+  if (params.has('debug')) {
+    // Inspect live state from the browser console: __avatar()
+    window.__avatar = () => ({
+      rig: { ...rig, names: [...rig.names.values()] },
+      face: { ...face, active: faceActive(), mix: faceMix },
+      values: Object.fromEntries(vrm.expressionManager?.expressions.map((e) => [e.expressionName, e.weight]) ?? []),
+    });
+  }
   bridge.send({
     kind: 'avatar-info',
     perfectSync: rig.perfectSync,

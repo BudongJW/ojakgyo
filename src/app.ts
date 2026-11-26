@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import { dirname, isAbsolute, resolve } from 'node:path';
+import { existsSync, mkdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import type { Action, LoadedConfig } from './config.js';
 import { ChzzkConnector } from './connectors/chzzk/connector.js';
 import { newEventId, type EventType, type OjakgyoEvent } from './core/events.js';
@@ -70,6 +70,7 @@ export class App {
         lipSync: config.outputs.avatar.lipSync,
         modelPath: this.avatarModelPath(),
       },
+      faceModel: () => this.faceModel(),
       ...(this.chzzk ? { chzzk: this.chzzk } : {}),
     });
 
@@ -92,6 +93,31 @@ export class App {
     if (!existsSync(file)) log.warn(`avatar model not found: ${file}`);
     else if (!/\.(vrm|glb)$/i.test(file)) log.warn(`avatar model should be a .vrm file: ${file}`);
     return file;
+  }
+
+  private faceModelDownload: Promise<string> | null = null;
+
+  /** MediaPipe face model, fetched once from outputs.avatar.faceModelUrl and cached on disk. */
+  faceModel(): Promise<string> {
+    const file = join(this.loaded.dataDir, 'models', 'face_landmarker.task');
+    if (existsSync(file) && statSync(file).size > 0) return Promise.resolve(file);
+    this.faceModelDownload ??= (async () => {
+      const url = this.loaded.config.outputs.avatar.faceModelUrl;
+      log.info(`downloading the face tracking model (first use only) from ${new URL(url).host}`);
+      const res = await fetch(url, { signal: AbortSignal.timeout(60_000) });
+      if (!res.ok) throw new Error(`model download failed: HTTP ${res.status}`);
+      const data = Buffer.from(await res.arrayBuffer());
+      if (data.length < 1024) throw new Error('model download looks truncated');
+      mkdirSync(dirname(file), { recursive: true });
+      const tmp = `${file}.${process.pid}.tmp`;
+      writeFileSync(tmp, data);
+      renameSync(tmp, file);
+      log.info(`face model cached (${(data.length / 1048576).toFixed(1)} MB)`);
+      return file;
+    })().finally(() => {
+      this.faceModelDownload = null;
+    });
+    return this.faceModelDownload;
   }
 
   async start(): Promise<void> {

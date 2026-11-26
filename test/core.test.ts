@@ -128,7 +128,8 @@ describe('config', () => {
     const config = parseConfig('');
     expect(config.server.port).toBe(7979);
     expect(config.outputs.tts.provider).toBe('browser');
-    expect(config.outputs.avatar).toEqual({ enabled: false, model: '', view: 'bust', lipSync: true });
+    expect(config.outputs.avatar).toMatchObject({ enabled: false, model: '', view: 'bust', lipSync: true });
+    expect(config.outputs.avatar.faceModelUrl).toMatch(/^https:\/\/storage\.googleapis\.com\/mediapipe-models\//);
   });
 
   it('explains invalid rules', () => {
