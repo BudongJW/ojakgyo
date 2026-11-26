@@ -40,6 +40,7 @@ The test suite spins up fake CHZZK, OBS and VTube Studio servers, so you can wor
 ## Pull requests
 
 - Keep PRs focused; one feature or fix per PR.
-- `npm run typecheck` and `npm test` must pass.
+- `npm run typecheck`, `npm test` and `npm run build` must pass. CI runs them on Linux and Windows with Node 22 and 24.
+- CI installs with `npm ci`, so `package-lock.json` must list every package. npm 11 on Windows can leave out the dependencies of wasm-only optional packages (`@emnapi/core`, `@emnapi/runtime`). If CI reports them missing from the lock file, put those entries back rather than dropping them.
 - Write commit messages and code comments in English. Korean is welcome in user-facing strings and examples.
 - Be kind. We're all here to make streams more fun.
