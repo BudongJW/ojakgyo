@@ -243,7 +243,7 @@ In OBS open **Tools → WebSocket Server Settings**, enable the server, put the 
 
 Streaming with a 3D model and no VTube Studio? ojakgyo can render a VRM avatar itself.
 
-1. Get a `.vrm` file: export your own from [VRoid Studio](https://vroid.com/en/studio), or start from one of the free models below.
+1. Get a `.vrm` file: export your own from [VRoid Studio](https://vroid.com/en/studio), start from one of the free models below, or use **Kkachi**, the CC0 sample avatar in this repo (`model: examples/avatars/kkachi/kkachi.vrm`).
 2. Put it next to `ojakgyo.yaml` and enable the avatar output:
    ```yaml
    outputs:
@@ -259,11 +259,19 @@ Streaming with a 3D model and no VTube Studio? ojakgyo can render a VRM avatar i
 
 | Model | Where | License (as embedded in the file) |
 | --- | --- | --- |
+| **Kkachi**, ojakgyo's own sample | [examples/avatars/kkachi](examples/avatars/kkachi) in this repo | CC0 |
 | `VRM1_Constraint_Twist_Sample` | [vrm-c/vrm-specification](https://github.com/vrm-c/vrm-specification/tree/master/samples/VRM1_Constraint_Twist_Sample) | VRM Public License 1.0: redistribution allowed, credit not required |
 | `Seed-san` | [vrm-c/vrm-specification](https://github.com/vrm-c/vrm-specification/tree/master/samples/Seed-san) | VRM Public License 1.0: credit to VirtualCast, Inc. required |
 | VRoid official samples: Sendagaya Shino, Sakurada Fumiriya, Vita, Victoria Rubin, Sendagaya Shibu, Vivi | [VRoid Hub](https://hub.vroid.com/) (sign-in required) | CC0 |
 
 Always check the license stored inside a VRM before streaming with it; it can differ from what a download page says.
+
+**Meet Kkachi.** The project's own avatar, learned on a laptop CPU from the three CC0 VRoid girls above. Her face is the centre of a face-shape space fitted to theirs (head-aligned PCA), and her colours were moved cluster by cluster (k-means in Lab) to a magpie palette, the bird that builds the ojakgyo bridge in the legend. She is CC0 like her sources, and the scripts in the folder rebuild her byte for byte or blend a face of your own: see [examples/avatars/kkachi](examples/avatars/kkachi).
+
+<div align="center">
+  <img src="docs/assets/kkachi.png" alt="Sendagaya Shino, Vita and Victoria Rubin, then Kkachi" width="90%" />
+  <br/><sub>The three VRoid samples she was learned from (CC0, pixiv Inc.), then Kkachi.</sub>
+</div>
 
 **ojakgyo reads that license for you.** When the bridge starts, it reads the usage fields stored in the model (VRM 1.0 and 0.x meta, or an Inochi2D puppet's license URL) and shows on the dashboard, under the avatar's browser source, whether they allow a monetized stream:
 
