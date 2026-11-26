@@ -225,21 +225,23 @@ export class OverlayServer {
     }
 
     const chzzk = this.hooks.chzzk;
+    const lang = prefersKorean(req) ? 'ko' : 'en';
+    const T = CALLBACK_TEXT[lang];
     if (path === '/auth/chzzk' && req.method === 'GET') {
-      if (!chzzk) return sendHtml(res, 400, page('CHZZK is not enabled', 'Set <code>platforms.chzzk.enabled: true</code> in ojakgyo.yaml.'));
+      if (!chzzk) return sendHtml(res, 400, page(lang, T.disabledTitle, T.disabledBody));
       res.writeHead(302, { Location: chzzk.beginLogin() });
       return void res.end();
     }
     if (path === '/auth/chzzk/callback' && req.method === 'GET') {
-      if (!chzzk) return sendHtml(res, 400, page('CHZZK is not enabled', ''));
+      if (!chzzk) return sendHtml(res, 400, page(lang, T.disabledTitle, T.disabledBody));
       const code = url.searchParams.get('code');
       const state = url.searchParams.get('state');
-      if (!code || !state) return sendHtml(res, 400, page('Login cancelled', 'No authorization code was returned.'));
+      if (!code || !state) return sendHtml(res, 400, page(lang, T.cancelledTitle, T.cancelledBody));
       try {
         const name = await chzzk.completeLogin(code, state);
-        return sendHtml(res, 200, page('Connected', `${name ? `<b>${escapeHtml(name)}</b> is` : 'Your channel is'} connected. You can close this tab.`));
+        return sendHtml(res, 200, page(lang, T.connectedTitle, T.connectedBody(name ? `<b>${escapeHtml(name)}</b>` : '')));
       } catch (err) {
-        return sendHtml(res, 400, page('Login failed', escapeHtml(errorMessage(err))));
+        return sendHtml(res, 400, page(lang, T.failedTitle, escapeHtml(errorMessage(err))));
       }
     }
     if (path === '/api/chzzk/logout' && req.method === 'POST') {
@@ -297,7 +299,36 @@ export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 }
 
-function page(title: string, body: string): string {
-  return `<!doctype html><html lang="en"><meta charset="utf-8"><title>${escapeHtml(title)} · ojakgyo</title>
-<link rel="stylesheet" href="/assets/ojakgyo.css"><body class="callback"><main><h1>${escapeHtml(title)}</h1><p>${body}</p><a class="btn secondary" href="/">Back to dashboard</a></main></body></html>`;
+/** True when the browser's first preferred language is Korean. */
+export function prefersKorean(req: IncomingMessage): boolean {
+  const first = String(req.headers['accept-language'] ?? '').split(',')[0]?.trim().toLowerCase() ?? '';
+  return first === 'ko' || first.startsWith('ko-');
+}
+
+const CALLBACK_TEXT = {
+  en: {
+    disabledTitle: 'CHZZK is not enabled',
+    disabledBody: 'Set <code>platforms.chzzk.enabled: true</code> in ojakgyo.yaml.',
+    cancelledTitle: 'Login cancelled',
+    cancelledBody: 'No authorization code was returned.',
+    connectedTitle: 'Connected',
+    connectedBody: (name: string) => `${name ? `${name} is` : 'Your channel is'} connected. You can close this tab.`,
+    failedTitle: 'Login failed',
+    back: 'Back to dashboard',
+  },
+  ko: {
+    disabledTitle: '치지직 연결이 꺼져 있습니다',
+    disabledBody: 'ojakgyo.yaml에서 <code>platforms.chzzk.enabled: true</code>로 설정하세요.',
+    cancelledTitle: '로그인이 취소되었습니다',
+    cancelledBody: '인증 코드를 받지 못했습니다.',
+    connectedTitle: '연결 완료',
+    connectedBody: (name: string) => `${name ? `${name} 채널이` : '채널이'} 연결되었습니다. 이 탭은 닫아도 됩니다.`,
+    failedTitle: '로그인 실패',
+    back: '대시보드로 돌아가기',
+  },
+} as const;
+
+function page(lang: 'en' | 'ko', title: string, body: string): string {
+  return `<!doctype html><html lang="${lang}"><meta charset="utf-8"><title>${escapeHtml(title)} · ojakgyo</title>
+<link rel="stylesheet" href="/assets/ojakgyo.css"><body class="callback"><main><h1>${escapeHtml(title)}</h1><p>${body}</p><a class="btn secondary" href="/">${CALLBACK_TEXT[lang].back}</a></main></body></html>`;
 }

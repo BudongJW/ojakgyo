@@ -66,13 +66,22 @@ rules:
 
   it('serves the dashboard, overlays and state', async () => {
     const { base } = await boot('');
-    for (const path of ['/', '/overlay/alerts', '/overlay/chat', '/assets/ojakgyo.css']) {
+    for (const path of ['/', '/overlay/alerts', '/overlay/chat', '/assets/ojakgyo.css', '/assets/i18n.js']) {
       const res = await fetch(base + path);
       expect(res.status, path).toBe(200);
     }
     const state = (await (await fetch(`${base}/api/state`)).json()) as { statuses: { id: string; state: string }[] };
     expect(state.statuses.find((s) => s.id === 'chzzk')?.state).toBe('disabled');
     expect((await fetch(`${base}/assets/../package.json`)).status).not.toBe(200);
+  });
+
+  it('answers the CHZZK login page in the browser language', async () => {
+    const { base } = await boot('');
+    const ko = await (await fetch(`${base}/auth/chzzk`, { headers: { 'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8' } })).text();
+    expect(ko).toContain('<html lang="ko">');
+    expect(ko).toContain('치지직 연결이 꺼져 있습니다');
+    const en = await (await fetch(`${base}/auth/chzzk`, { headers: { 'Accept-Language': 'en-US,en;q=0.9,ko;q=0.5' } })).text();
+    expect(en).toContain('CHZZK is not enabled');
   });
 
   it('blocks cross-site requests from other web pages', async () => {

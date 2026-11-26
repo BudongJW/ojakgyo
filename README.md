@@ -49,8 +49,17 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
 
 <div align="center">
   <img src="docs/assets/dashboard.png" alt="ojakgyo dashboard: connection status, test bench and live event feed" width="92%" />
-  <br/><sub><b>Dashboard</b>: connection status, a form for test events, and every event that crosses the bridge. Follows your system's light or dark theme.</sub>
+  <br/><sub><b>Dashboard</b>: connection status, a form for test events, and every event that crosses the bridge. Follows your system's light or dark theme and comes in English and Korean.</sub>
 </div>
+
+<details>
+<summary><b>한국어 모드</b> (Korean mode)</summary>
+<br/>
+<div align="center">
+  <img src="docs/assets/dashboard-ko.png" alt="ojakgyo dashboard in Korean" width="92%" />
+  <br/><sub>The dashboard picks Korean automatically when your browser is set to Korean. Switch any time with the <code>EN / 한국어</code> toggle in the top bar.</sub>
+</div>
+</details>
 
 <br/>
 
@@ -103,7 +112,7 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
   <tr>
     <td valign="top">
       <h3>🧪 Test bench</h3>
-      Fire fake donations, chats and subscriptions from the dashboard or the CLI and tune your setup <b>without going live</b>.
+      Fire fake donations, chats and subscriptions from the dashboard or the CLI and tune your setup <b>without going live</b>. The dashboard speaks English and <b>한국어</b>.
     </td>
     <td valign="top">
       <h3>🔒 Local-first and polite</h3>
@@ -333,6 +342,7 @@ outputs:
 - [x] VTube Studio: hotkeys, expressions, items, tints, TTS lip-sync
 - [x] OBS: scenes with auto-revert, sources, filters
 - [x] Alert and chat overlays, dashboard, test bench, CLI
+- [x] Dashboard in English and Korean
 - [x] Korean TTS: browser, OpenAI-compatible, GPT-SoVITS
 - [ ] **SOOP** connector (official Chat SDK through a headless relay)
 - [ ] **CIME** connector

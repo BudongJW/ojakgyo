@@ -1,38 +1,49 @@
 import { connect, el, richText, won } from './client.js';
+import { detectLang, getLang, saveLang, setLang, t, translateDetail, translatePage } from './i18n.js';
 
 const ORDER = ['chzzk', 'vts', 'obs', 'overlay'];
-const LABELS = { chzzk: 'CHZZK', vts: 'VTube Studio', obs: 'OBS', overlay: 'Overlays' };
-const STATE_TEXT = {
-  connected: 'Connected',
-  connecting: 'Connecting',
-  disconnected: 'Offline',
-  error: 'Error',
-  disabled: 'Disabled',
-  'action-needed': 'Action needed',
-};
 const statuses = new Map();
+const events = [];
+const seen = new Set();
+const MAX_EVENTS = 200;
 
+/* ── language ── */
+function applyLang(lang) {
+  setLang(lang);
+  translatePage();
+  for (const b of document.querySelectorAll('#lang button')) b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()));
+  renderStatuses();
+  renderEvents();
+}
+
+document.getElementById('lang').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  saveLang(btn.dataset.lang);
+  applyLang(btn.dataset.lang);
+});
+
+/* ── connection status ── */
 function stateText(s) {
-  if (s.id === 'chzzk' && s.state === 'action-needed') return 'Login required';
-  if (s.id === 'overlay' && s.state === 'disconnected') return 'None open';
-  if (s.id === 'overlay' && s.state === 'connected') return 'Open';
-  return STATE_TEXT[s.state] ?? s.state;
+  if (s.id === 'chzzk' && s.state === 'action-needed') return t('state.chzzk.login');
+  if (s.id === 'overlay' && s.state === 'disconnected') return t('state.overlay.none');
+  if (s.id === 'overlay' && s.state === 'connected') return t('state.overlay.open');
+  return t(`state.${s.state}`);
 }
 
 function stateDetail(s) {
-  if (s.state === 'disabled') return 'Off in ojakgyo.yaml';
-  if (s.id === 'vts' && s.state === 'disconnected') return 'Retrying. Is the API enabled in VTube Studio?';
-  if (s.id === 'overlay' && s.state === 'disconnected') return 'Add a browser source in OBS';
-  return s.detail ?? '';
+  if (s.state === 'disabled') return t('detail.disabled');
+  if (s.id === 'vts' && s.state === 'disconnected') return t('detail.vts.retry');
+  return translateDetail(s.detail);
 }
 
 function renderStatuses() {
   const root = document.getElementById('statuses');
   root.replaceChildren();
   for (const id of ORDER) {
-    const s = statuses.get(id) ?? { id, label: LABELS[id], state: 'disabled' };
+    const s = statuses.get(id) ?? { id, state: 'disabled' };
     const cell = el('div', 'status');
-    cell.append(el('div', 'label', s.label ?? LABELS[id]));
+    cell.append(el('div', 'label', t(`label.${id}`)));
     const state = el('div', 'state');
     // An overlay that isn't open is normal off-stream, not an error.
     const dot = s.id === 'overlay' && s.state === 'disconnected' ? 'idle' : s.state;
@@ -45,7 +56,7 @@ function renderStatuses() {
       cell.append(d);
     }
     if (s.link && (s.link.startsWith('http://') || s.link.startsWith('/'))) {
-      const a = el('a', 'btn secondary action', id === 'chzzk' ? 'Log in' : 'Open');
+      const a = el('a', 'btn secondary action', id === 'chzzk' ? t('action.login') : t('action.open'));
       a.href = s.link;
       cell.append(a);
     }
@@ -53,40 +64,53 @@ function renderStatuses() {
   }
 }
 
-const KIND = { chat: 'Chat', donation: 'Donation', subscription: 'Sub' };
+/* ── events ── */
 const timeFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-let count = 0;
 
-function addEvent(event) {
-  const feed = document.getElementById('feed');
-  feed.querySelector('.empty')?.remove();
-
+function eventRow(event) {
   const row = el('li', `ev ${event.type}`);
   row.append(el('span', 'time', timeFmt.format(event.receivedAt)));
+  row.append(el('span', 'kind', t(`kind.${event.type}`)));
 
-  const kind = el('span', 'kind', KIND[event.type] ?? event.type);
-  row.append(kind);
-
-  const who = el('span', 'who', event.user?.nickname ?? '익명의 후원자');
-  if (event.user && event.user.role !== 'viewer') who.append(el('small', '', event.user.role.replace('_', ' ')));
-  who.title = `${event.user?.nickname ?? ''} · ${event.platform === 'mock' ? 'test' : event.platform}`;
+  const who = el('span', 'who', event.user?.nickname ?? t('anonymous'));
+  if (event.user && event.user.role !== 'viewer') who.append(el('small', '', t(`role.${event.user.role}`)));
   row.append(who);
 
   let amount = '';
-  if (event.type === 'donation') amount = `${won(event.amount)}원`;
-  if (event.type === 'subscription') amount = `${event.months}개월 · T${event.tier}`;
+  if (event.type === 'donation') amount = t('won', { n: won(event.amount) });
+  if (event.type === 'subscription') amount = `${t('months', { n: event.months })} · T${event.tier}`;
   row.append(el('span', 'amount', amount));
 
   const msg = richText(el('span', 'msg'), event.message, event.emojis);
   msg.title = event.message;
-  if (event.platform === 'mock') row.title = 'Test event';
   row.append(msg);
-
-  feed.prepend(row);
-  while (feed.children.length > 200) feed.lastChild.remove();
-  document.getElementById('evCount').textContent = String(++count);
+  if (event.platform === 'mock') row.title = t('events.test');
+  return row;
 }
 
+function renderEvents() {
+  const feed = document.getElementById('feed');
+  if (events.length === 0) {
+    feed.replaceChildren(el('li', 'empty', t('events.empty')));
+  } else {
+    feed.replaceChildren(...events.map(eventRow));
+  }
+  document.getElementById('evCount').textContent = String(events.length);
+}
+
+function addEvent(event) {
+  if (seen.has(event.id)) return;
+  seen.add(event.id);
+  events.unshift(event);
+  if (events.length > MAX_EVENTS) events.pop();
+  const feed = document.getElementById('feed');
+  feed.querySelector('.empty')?.remove();
+  feed.prepend(eventRow(event));
+  while (feed.children.length > MAX_EVENTS) feed.lastChild.remove();
+  document.getElementById('evCount').textContent = String(events.length);
+}
+
+/* ── log (kept in English: it is meant for troubleshooting and bug reports) ── */
 function addLog(record) {
   const logs = document.getElementById('logs');
   logs.querySelector('.muted')?.remove();
@@ -94,6 +118,9 @@ function addLog(record) {
   logs.prepend(line);
   while (logs.children.length > 300) logs.lastChild.remove();
 }
+
+/* ── wiring ── */
+applyLang(detectLang());
 
 connect('dashboard', (msg) => {
   if (msg.kind === 'status') {
@@ -112,7 +139,15 @@ fetch('/api/state')
     document.getElementById('urlChat').textContent = state.overlays.chat;
     for (const s of state.statuses) statuses.set(s.id, s);
     renderStatuses();
-    for (const e of state.events) addEvent(e);
+    // Merge history with anything that already arrived live, newest first.
+    for (const e of state.events) {
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      events.push(e);
+    }
+    events.sort((a, b) => b.receivedAt - a.receivedAt);
+    events.splice(MAX_EVENTS);
+    renderEvents();
     for (const r of state.logs ?? []) addLog(r);
   });
 
@@ -150,7 +185,7 @@ document.getElementById('sim').addEventListener('submit', async (e) => {
 for (const btn of document.querySelectorAll('[data-copy]')) {
   btn.addEventListener('click', async () => {
     await navigator.clipboard.writeText(document.getElementById(btn.dataset.copy).textContent);
-    btn.textContent = 'Copied';
-    setTimeout(() => (btn.textContent = 'Copy'), 1400);
+    btn.textContent = t('copied');
+    setTimeout(() => (btn.textContent = t('copy')), 1400);
   });
 }

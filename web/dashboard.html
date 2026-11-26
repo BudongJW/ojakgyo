@@ -17,28 +17,32 @@
       <span class="name">ojakgyo</span>
       <a class="ver" id="ver" href="https://github.com/BudongJW/ojakgyo" target="_blank" rel="noopener">v—</a>
       <span class="host" id="host"></span>
+      <div class="lang" id="lang" role="group" data-i18n-aria="lang.label" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        <button type="button" data-lang="ko" aria-pressed="false">한국어</button>
+      </div>
     </header>
 
-    <section class="status-strip" id="statuses" aria-label="Connections"></section>
+    <section class="status-strip" id="statuses" data-i18n-aria="status.connections" aria-label="Connections"></section>
 
     <div class="grid">
       <div>
         <section class="panel" aria-labelledby="bench-title">
-          <div class="panel-head"><h2 id="bench-title">Test event</h2></div>
+          <div class="panel-head"><h2 id="bench-title" data-i18n="bench.title">Test event</h2></div>
           <div class="panel-body">
-            <p class="hint">Runs a fake event through your rules. Nothing is posted to your channel.</p>
-            <div class="seg" id="tabs" role="group" aria-label="Event type">
-              <button type="button" data-type="donation" aria-pressed="true">Donation</button>
-              <button type="button" data-type="chat" aria-pressed="false">Chat</button>
-              <button type="button" data-type="subscription" aria-pressed="false">Subscription</button>
+            <p class="hint" data-i18n="bench.hint">Runs a fake event through your rules. Nothing is posted to your channel.</p>
+            <div class="seg" id="tabs" role="group" data-i18n-aria="bench.type" aria-label="Event type">
+              <button type="button" data-type="donation" aria-pressed="true" data-i18n="type.donation">Donation</button>
+              <button type="button" data-type="chat" aria-pressed="false" data-i18n="type.chat">Chat</button>
+              <button type="button" data-type="subscription" aria-pressed="false" data-i18n="type.subscription">Subscription</button>
             </div>
             <form id="sim">
               <div class="field">
-                <label for="nick">Nickname</label>
+                <label for="nick" data-i18n="field.nickname">Nickname</label>
                 <input class="input" id="nick" value="별빛시청자" maxlength="30" autocomplete="off" />
               </div>
               <div class="field" id="amountBox">
-                <label for="amount">Amount (KRW)</label>
+                <label for="amount" data-i18n="field.amount">Amount (KRW)</label>
                 <input class="input num" id="amount" type="number" min="0" step="100" value="5000" />
                 <div class="presets" id="amountPresets">
                   <button type="button" data-v="1000">1,000</button>
@@ -49,33 +53,33 @@
                 </div>
               </div>
               <div class="field" id="subBox" hidden>
-                <label for="months">Months</label>
+                <label for="months" data-i18n="field.months">Months</label>
                 <input class="input num" id="months" type="number" min="1" value="3" />
               </div>
               <div class="field">
-                <label for="msg">Message</label>
+                <label for="msg" data-i18n="field.message">Message</label>
                 <textarea class="input" id="msg" maxlength="200">오늘 방송도 너무 재밌어요ㅋㅋㅋㅋㅋㅋ 화이팅!</textarea>
               </div>
-              <button class="btn primary" type="submit">Send test event</button>
+              <button class="btn primary" type="submit" data-i18n="bench.send">Send test event</button>
             </form>
           </div>
         </section>
 
         <section class="panel" aria-labelledby="src-title">
-          <div class="panel-head"><h2 id="src-title">OBS browser sources</h2></div>
+          <div class="panel-head"><h2 id="src-title" data-i18n="sources.title">OBS browser sources</h2></div>
           <div class="panel-body">
             <div class="sources">
               <div class="src-row">
-                <span class="src-name">Alerts</span>
+                <span class="src-name" data-i18n="sources.alerts">Alerts</span>
                 <code id="urlAlerts">…</code>
                 <span class="size num">1920×1080</span>
-                <button class="btn secondary" type="button" data-copy="urlAlerts">Copy</button>
+                <button class="btn secondary" type="button" data-copy="urlAlerts" data-i18n="copy">Copy</button>
               </div>
               <div class="src-row">
-                <span class="src-name">Chat</span>
+                <span class="src-name" data-i18n="sources.chat">Chat</span>
                 <code id="urlChat">…</code>
                 <span class="size num">500×800</span>
-                <button class="btn secondary" type="button" data-copy="urlChat">Copy</button>
+                <button class="btn secondary" type="button" data-copy="urlChat" data-i18n="copy">Copy</button>
               </div>
             </div>
           </div>
@@ -84,14 +88,14 @@
 
       <div>
         <section class="panel" aria-labelledby="ev-title">
-          <div class="panel-head"><h2 id="ev-title">Events</h2><span class="meta num" id="evCount">0</span></div>
+          <div class="panel-head"><h2 id="ev-title" data-i18n="events.title">Events</h2><span class="meta num" id="evCount">0</span></div>
           <ul class="events" id="feed" aria-live="polite">
-            <li class="empty">No events yet. Send a test event, or go live.</li>
+            <li class="empty" data-i18n="events.empty">No events yet. Send a test event, or go live.</li>
           </ul>
         </section>
         <section class="panel" aria-labelledby="log-title">
-          <div class="panel-head"><h2 id="log-title">Log</h2></div>
-          <pre class="logs" id="logs"><span class="muted">Waiting for log output…</span></pre>
+          <div class="panel-head"><h2 id="log-title" data-i18n="log.title">Log</h2></div>
+          <pre class="logs" id="logs"><span class="muted" data-i18n="log.waiting">Waiting for log output…</span></pre>
         </section>
       </div>
     </div>
