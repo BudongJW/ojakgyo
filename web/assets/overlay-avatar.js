@@ -207,6 +207,16 @@ function tick() {
         if (em.getExpression(name)) weights.set(name, expressionWeight(entry, t));
         if (t > entry.until + 0.45) active.delete(name);
       }
+      // A preset smile (VRoid's Joy) already closes the eyes. A blink or wink on top of it
+      // folds the eyelids through the cheek, so blinks give way as the smile grows.
+      const happyName = rig.perfectSync ? null : rig.names.get('happy');
+      const smile = happyName ? Math.min(1, weights.get(happyName) ?? 0) : 0;
+      if (smile > 0) {
+        for (const key of ['blink', 'blinkleft', 'blinkright']) {
+          const name = rig.names.get(key);
+          if (name && weights.has(name)) weights.set(name, weights.get(name) * (1 - smile));
+        }
+      }
       for (const name of lastWritten) if (!weights.has(name)) em.setValue(name, 0);
       for (const [name, v] of weights) em.setValue(name, Math.min(1, v));
       lastWritten = new Set(weights.keys());
