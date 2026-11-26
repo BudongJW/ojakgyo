@@ -111,6 +111,11 @@ export type OverlayMessage =
       volume: number;
     };
 
+export interface RulesApiResult {
+  status: number;
+  body: Record<string, unknown>;
+}
+
 export interface ServerHooks {
   hub: Hub;
   version: string;
@@ -128,6 +133,12 @@ export interface ServerHooks {
   };
   /** Path to the MediaPipe face model, downloading it on first use. */
   faceModel(): Promise<string>;
+  /** Dashboard rule editor. */
+  rules: {
+    state(): Record<string, unknown>;
+    save(raw: unknown): RulesApiResult;
+    tryRule(raw: unknown): RulesApiResult;
+  };
   chzzk?: {
     beginLogin(): string;
     completeLogin(code: string, state: string): Promise<string>;
@@ -326,6 +337,17 @@ export class OverlayServer {
         logs: this.logs,
         overlays: { alerts: `${this.origin}/overlay/alerts`, chat: `${this.origin}/overlay/chat`, avatar: `${this.origin}/overlay/avatar` },
       });
+    }
+
+    if (path === '/api/rules' || path === '/api/rules/try') {
+      if (req.method === 'GET' && path === '/api/rules') return sendJson(res, 200, this.hooks.rules.state());
+      const write = (req.method === 'PUT' && path === '/api/rules') || (req.method === 'POST' && path === '/api/rules/try');
+      if (!write) return sendJson(res, 405, { error: 'method not allowed' });
+      if (!this.originAllowed(req)) return sendJson(res, 403, { error: 'forbidden origin' });
+      if (!String(req.headers['content-type'] ?? '').includes('application/json')) return sendJson(res, 415, { error: 'send application/json' });
+      const body = await readJson(req);
+      const result = path === '/api/rules' ? this.hooks.rules.save(body.rules) : this.hooks.rules.tryRule(body.rule);
+      return sendJson(res, result.status, result.body);
     }
 
     if (req.method === 'POST' && path === '/api/simulate') {

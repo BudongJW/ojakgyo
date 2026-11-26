@@ -111,8 +111,8 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
       Read donations aloud with OS voices, <b>any OpenAI-compatible server</b>, or your own <b>GPT-SoVITS</b> character voice. Cleans up the text first: <code>ㅋㅋㅋㅋㅋㅋ</code> → <code>ㅋㅋㅋ</code>, links removed, blocked words dropped.
     </td>
     <td valign="top">
-      <h3>🧩 Rules in plain YAML</h3>
-      Amount ranges, exact amounts (hello, <code>1004</code>원 angel donations 👼), regex chat commands, role filters, cooldowns, chained actions with delays, and webhooks to anything else.
+      <h3>🧩 Rules in plain YAML, or on the dashboard</h3>
+      Amount ranges, exact amounts (hello, <code>1004</code>원 angel donations 👼), regex chat commands, role filters, cooldowns, chained actions with delays, and webhooks to anything else. Edit them in <code>ojakgyo.yaml</code> or in the dashboard's rule editor, which checks each field, saves back to the file and applies at once.
     </td>
   </tr>
   <tr>
@@ -356,7 +356,7 @@ These are the names the official sample rigs use; a rig with other names still r
 
 ## 🧩 Rules
 
-Rules live in `ojakgyo.yaml`: **when** an event matches, **run** its actions in order.
+Rules live in `ojakgyo.yaml`: **when** an event matches, **run** its actions in order. You can write them by hand, or use the editor at the bottom of the dashboard.
 
 ```yaml
 rules:
@@ -416,6 +416,20 @@ rules:
 Rule-level options: `cooldown` (seconds), `stop: true` (skip later rules when this one fires), `enabled: false`.
 
 </details>
+
+### ✏️ Edit rules on the dashboard
+
+The **Rules** panel at the bottom of `http://localhost:7979` lists every rule with its trigger and conditions. Pick one to change its conditions and actions; the action fields come from the same schema the bridge validates with, so the form always matches what ojakgyo accepts.
+
+<div align="center">
+  <img src="docs/assets/rules-editor.png" alt="The dashboard rule editor with the Big donation party rule open" width="90%" />
+</div>
+
+- **Save** checks every rule first and points at the field that is wrong. Valid rules are written back to `ojakgyo.yaml` and take effect immediately, no restart.
+- Only the `rules:` section of the file changes; everything else stays byte for byte. Comments *inside* that section are not kept, and the previous file is saved as `ojakgyo.yaml.bak`.
+- `${VAR}` placeholders stay placeholders: the editor works on the file as written, so secrets from `.env` never end up in it.
+- **Try this rule** runs the rule's actions once with a test event that fits its conditions, saved or not, without triggering your other rules.
+- Started without a config file, the panel is read-only.
 
 <details>
 <summary><b>🎛️ Actions</b></summary>
@@ -483,7 +497,7 @@ outputs:
 - [ ] **SOOP** connector (official Chat SDK through a headless relay)
 - [ ] **CIME** connector
 - [ ] YouTube Live chat
-- [ ] Rule editor in the dashboard
+- [x] Rule editor in the dashboard
 - [ ] Desktop app with tray icon and auto-start
 - [ ] Optional AI co-host (local LLM) with built-in AI-content labeling
 - [ ] 한국어 문서
@@ -494,7 +508,7 @@ Have an idea? [Open an issue](https://github.com/BudongJW/ojakgyo/issues/new/cho
 
 - **Official APIs only.** ojakgyo never scrapes pages or calls internal endpoints.
 - **Bring your own keys.** Each streamer registers their own CHZZK app, which keeps you inside the platform's terms and keeps your keys yours.
-- **Secrets stay local.** Tokens are written to `.ojakgyo/secrets.json` with owner-only permissions; `.env`, `.ojakgyo/` and `ojakgyo.yaml` are git-ignored.
+- **Secrets stay local.** Tokens are written to `.ojakgyo/secrets.json` with owner-only permissions; `.env`, `.ojakgyo/`, `ojakgyo.yaml` and its `.bak` backup are git-ignored.
 - **Nothing is exposed to the network.** The server binds to `127.0.0.1`, refuses requests from other origins, and renders viewer text as text, never HTML.
 
 Found a vulnerability? See [SECURITY.md](SECURITY.md).

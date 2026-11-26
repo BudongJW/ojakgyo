@@ -311,6 +311,46 @@ export function parseConfig(text: string, env: NodeJS.ProcessEnv = process.env):
   return result.data;
 }
 
+export interface RuleIssue {
+  /** Where the problem is, e.g. [0, 'actions', 1, 'scene']. */
+  path: (string | number)[];
+  message: string;
+}
+
+/** `${VAR}` placeholders in every string of a parsed YAML value, like parseConfig does for the file. */
+export function substituteEnvDeep(value: unknown, env: NodeJS.ProcessEnv = process.env): unknown {
+  if (typeof value === 'string') return substituteEnv(value, env);
+  if (Array.isArray(value)) return value.map((v) => substituteEnvDeep(v, env));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, substituteEnvDeep(v, env)]));
+  return value;
+}
+
+/**
+ * Validate rules as they are written in ojakgyo.yaml (placeholders allowed), for the dashboard
+ * editor. Returns the parsed rules, or every problem with its path so the form can point at it.
+ */
+export function validateRules(raw: unknown, env: NodeJS.ProcessEnv = process.env): { ok: true; rules: Rule[] } | { ok: false; issues: RuleIssue[] } {
+  const result = z.array(RuleSchema).safeParse(dropNulls(substituteEnvDeep(raw, env)));
+  if (result.success) {
+    const names = new Set<string>();
+    const issues: RuleIssue[] = [];
+    result.data.forEach((rule, i) => {
+      // Cooldowns are tracked by name, so two rules with one name would share a cooldown.
+      if (names.has(rule.name)) issues.push({ path: [i, 'name'], message: 'another rule already has this name' });
+      names.add(rule.name);
+    });
+    return issues.length ? { ok: false, issues } : { ok: true, rules: result.data };
+  }
+  return {
+    ok: false,
+    issues: result.error.issues.map((i) => ({
+      path: i.path.map((p) => (typeof p === 'symbol' ? String(p) : p)),
+      // A missing required field reads "expected string, received undefined"; say it plainly.
+      message: i.code === 'invalid_type' && /received undefined$/.test(i.message) ? 'required' : i.message,
+    })),
+  };
+}
+
 function dropNulls(value: unknown): unknown {
   if (Array.isArray(value)) return value.filter((v) => v !== null).map(dropNulls);
   if (value && typeof value === 'object') {

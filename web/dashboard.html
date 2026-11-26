@@ -106,6 +106,24 @@
         </section>
       </div>
     </div>
+
+    <section class="panel rules" aria-labelledby="rules-title">
+      <div class="panel-head">
+        <h2 id="rules-title" data-i18n="rules.title">Rules</h2>
+        <span class="meta num" id="rulesCount"></span>
+        <span class="meta mono" id="rulesFile"></span>
+        <div class="end head-actions">
+          <span class="save-state" id="rulesStatus" role="status"></span>
+          <button class="btn secondary" type="button" id="rulesRevert" data-i18n="rules.revert" disabled>Revert</button>
+          <button class="btn primary inline" type="button" id="rulesSave" data-i18n="rules.save" disabled>Save</button>
+        </div>
+      </div>
+      <p class="rules-note hint" id="rulesNote"></p>
+      <div class="rules-body">
+        <nav class="rule-list" id="ruleList" data-i18n-aria="rules.title" aria-label="Rules"></nav>
+        <div class="rule-editor" id="ruleEditor"></div>
+      </div>
+    </section>
   </div>
   <script type="module" src="/assets/dashboard.js"></script>
 </body>

@@ -1,18 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
-import type { Action, LoadedConfig } from './config.js';
+import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { validateRules, type Action, type LoadedConfig, type Rule } from './config.js';
 import { ChzzkConnector } from './connectors/chzzk/connector.js';
-import { newEventId, type EventType, type OjakgyoEvent } from './core/events.js';
+import { EVENT_TYPES, newEventId, ROLES, type EventType, type OjakgyoEvent } from './core/events.js';
 import { Hub } from './core/hub.js';
 import { createLogger, errorMessage } from './core/logger.js';
-import { RuleEngine } from './core/rules.js';
+import { matchRule, RuleEngine } from './core/rules.js';
 import { FileStore, type KeyValueStore } from './core/store.js';
 import { render, renderDeep } from './core/template.js';
 import { Obs } from './outputs/obs.js';
 import { TtsService } from './outputs/tts.js';
 import { VTubeStudio } from './outputs/vtube-studio.js';
-import { OverlayServer } from './server/http.js';
+import { actionCatalog, compactRule, readRulesFromFile, writeRulesToFile } from './rules-file.js';
+import { OverlayServer, type RulesApiResult } from './server/http.js';
 import { VERSION } from './version.js';
 
 const log = createLogger('ojakgyo');
@@ -71,6 +72,11 @@ export class App {
         modelPath: this.avatarModelPath(),
       },
       faceModel: () => this.faceModel(),
+      rules: {
+        state: () => this.rulesState(),
+        save: (raw) => this.saveRules(raw),
+        tryRule: (raw) => this.tryRule(raw),
+      },
       ...(this.chzzk ? { chzzk: this.chzzk } : {}),
     });
 
@@ -137,8 +143,57 @@ export class App {
     await this.server.close();
   }
 
+  /* ── dashboard rule editor ── */
+
+  /** Rules as written in the config file, plus what the editor needs to build its form. */
+  rulesState(): Record<string, unknown> {
+    const base = { catalog: actionCatalog(), events: EVENT_TYPES, roles: ROLES };
+    const path = this.loaded.path;
+    const fromConfig = () => this.loaded.config.rules.map((r) => compactRule(r as unknown as Record<string, unknown>));
+    if (!path) return { ...base, rules: fromConfig(), file: null, writable: false };
+    try {
+      return { ...base, rules: readRulesFromFile(path), file: basename(path), writable: true };
+    } catch (err) {
+      return { ...base, rules: fromConfig(), file: basename(path), writable: false, error: errorMessage(err) };
+    }
+  }
+
+  /** Validate, write back to ojakgyo.yaml and apply at once. */
+  saveRules(raw: unknown): RulesApiResult {
+    const path = this.loaded.path;
+    if (!path) return { status: 409, body: { error: 'ojakgyo is running without a config file, so there is nowhere to save. Start it next to an ojakgyo.yaml (or with -c).' } };
+    if (!Array.isArray(raw)) return { status: 400, body: { error: 'expected { rules: [...] }' } };
+    const result = validateRules(raw);
+    if (!result.ok) return { status: 400, body: { error: 'Some rules are not valid.', issues: result.issues } };
+    try {
+      writeRulesToFile(path, raw as Record<string, unknown>[]);
+    } catch (err) {
+      return { status: 500, body: { error: errorMessage(err) } };
+    }
+    this.engine.setRules(result.rules);
+    this.loaded.config.rules = result.rules;
+    log.info(`rules saved to ${basename(path)} and applied (${result.rules.length} rule${result.rules.length === 1 ? '' : 's'})`);
+    return { status: 200, body: { ok: true, rules: readRulesFromFile(path) } };
+  }
+
+  /** Run one rule (saved or not) once with a sample event that fits its conditions. */
+  tryRule(raw: unknown): RulesApiResult {
+    const result = validateRules([raw]);
+    if (!result.ok) return { status: 400, body: { error: 'This rule is not valid yet.', issues: result.issues.map((i) => ({ ...i, path: i.path.slice(1) })) } };
+    const rule = { ...result.rules[0]!, enabled: true };
+    const event = this.buildEvent(sampleInput(rule));
+    void this.engine.fire(rule, event).catch((err) => log.warn(`try failed: ${errorMessage(err)}`));
+    return { status: 200, body: { ok: true, matched: matchRule(rule, event), event } };
+  }
+
   /** Inject a fake event, from the dashboard or `ojakgyo simulate`. */
   simulate(input: Record<string, unknown>): OjakgyoEvent {
+    const event = this.buildEvent(input);
+    this.hub.publish(event);
+    return event;
+  }
+
+  private buildEvent(input: Record<string, unknown>): OjakgyoEvent {
     const type = String(input.type ?? 'donation') as EventType;
     const nickname = String(input.nickname ?? '').trim() || '테스트시청자';
     const message = String(input.message ?? '');
@@ -177,7 +232,6 @@ export class App {
       default:
         throw new Error(`unknown event type "${type}"`);
     }
-    this.hub.publish(event);
     return event;
   }
 
@@ -283,4 +337,20 @@ export class App {
         if (!res.ok) throw new Error(`webhook answered ${res.status}`);
       });
   }
+}
+
+/** A test event that a rule's conditions accept, as far as they can be guessed. */
+function sampleInput(rule: Rule): Record<string, unknown> {
+  const w = rule.when;
+  // A plain-text pattern such as ^!hat$ doubles as the sample message.
+  const literal = w.match?.replace(/^\^/, '').replace(/\$$/, '');
+  return {
+    type: rule.on[0],
+    nickname: '테스트시청자',
+    role: w.roles?.[0] ?? 'viewer',
+    amount: w.amounts?.[0] ?? w.minAmount ?? Math.min(1000, w.maxAmount ?? 1000),
+    tier: w.minTier ?? 1,
+    months: Math.max(1, w.minMonths ?? 1),
+    message: w.contains?.[0] ?? (literal && !/[.*+?()[\]{}|\\]/.test(literal) ? literal : '테스트 메시지입니다'),
+  };
 }

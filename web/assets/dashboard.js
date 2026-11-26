@@ -1,5 +1,6 @@
 import { connect, el, richText, won } from './client.js';
 import { detectLang, getLang, saveLang, setLang, t, translateDetail, translatePage } from './i18n.js';
+import { mountRules, rerenderRules } from './rules-editor.js';
 
 const ORDER = ['chzzk', 'vts', 'obs', 'overlay'];
 const statuses = new Map();
@@ -14,6 +15,7 @@ function applyLang(lang) {
   for (const b of document.querySelectorAll('#lang button')) b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()));
   renderStatuses();
   renderEvents();
+  rerenderRules();
 }
 
 document.getElementById('lang').addEventListener('click', (e) => {
@@ -121,6 +123,7 @@ function addLog(record) {
 
 /* ── wiring ── */
 applyLang(detectLang());
+mountRules();
 
 connect('dashboard', (msg) => {
   if (msg.kind === 'status') {

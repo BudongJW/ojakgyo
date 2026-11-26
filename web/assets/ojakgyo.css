@@ -156,3 +156,62 @@ body.callback { min-height: 100vh; display: grid; place-items: center; backgroun
 body.callback main { width: min(420px, 90vw); background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 24px; }
 body.callback h1 { margin: 0 0 8px; font-size: 17px; }
 body.callback p { color: var(--text-2); margin: 0 0 16px; }
+
+/* ───────────── rule editor ───────────── */
+.rules { margin-top: 20px; }
+.head-actions { display: flex; align-items: center; gap: 8px; }
+.btn.primary.inline { width: auto; padding: 4px 14px; font-size: 12px; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.small { padding: 2px 8px; font-size: 12px; font-weight: 500; }
+.btn.danger { color: var(--bad); }
+.mono { font-family: var(--mono); }
+.save-state { color: var(--text-3); font-size: 12px; }
+.save-state.dirty { color: var(--warn); }
+.save-state.ok { color: var(--ok); }
+.save-state.bad { color: var(--bad); }
+.rules-note { margin: 0; padding: 8px 14px; border-bottom: 1px solid var(--rule); }
+.rules-note.warn { color: var(--warn); }
+.rules-body { display: grid; grid-template-columns: 290px minmax(0, 1fr); min-height: 460px; }
+.rule-list { border-right: 1px solid var(--rule); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.rule-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: start; padding: 7px 8px; border-radius: 5px; border: 1px solid transparent; }
+.rule-item:hover { background: var(--surface-2); }
+.rule-item[aria-current='true'] { background: var(--surface-2); border-color: var(--rule-strong); }
+.rule-item input { margin: 3px 0 0; }
+.rule-pick { display: flex; flex-direction: column; min-width: 0; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.rule-pick .rname { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rule-pick .rsum { color: var(--text-3); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rule-item.off .rname { color: var(--text-3); text-decoration: line-through; }
+.rule-item.bad .rname { color: var(--bad); }
+.add-rule { margin-top: 8px; align-self: flex-start; }
+.rule-editor { padding: 14px 16px 16px; min-width: 0; }
+.subhead { font-size: 12px; font-weight: 650; color: var(--text-2); margin: 18px 0 8px; }
+.rule-editor > .row2:first-child .field, .rule-editor > .issues + .row2 .field { margin-bottom: 0; }
+.row2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0 12px; }
+.field-hint { color: var(--text-3); font-size: 11px; margin-top: 3px; }
+.align-end { display: flex; align-items: flex-end; padding-bottom: 8px; }
+.wide { grid-column: span 2; }
+.check { display: inline-flex; align-items: center; gap: 6px; color: var(--text-2); font-size: 12px; cursor: pointer; }
+.checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.seg.multi { max-width: 420px; margin-bottom: 4px; }
+.input[aria-invalid='true'] { border-color: var(--bad); }
+.err { color: var(--bad); font-size: 12px; margin-top: 4px; }
+.issues { border: 1px solid var(--bad); border-radius: 5px; padding: 8px 10px; margin-bottom: 12px; color: var(--bad); font-size: 12px; }
+.action-card { border: 1px solid var(--rule); border-radius: 5px; margin-bottom: 10px; }
+.action-card.bad { border-color: var(--bad); }
+.action-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; border-bottom: 1px solid var(--rule); background: var(--surface-2); font-size: 12px; border-radius: 5px 5px 0 0; }
+.action-head .idx { color: var(--text-3); min-width: 14px; }
+.action-head .atype { font-weight: 600; }
+.action-head .tools { margin-left: auto; display: flex; gap: 4px; }
+.action-body { padding: 10px 10px 0; }
+.action-body:empty { display: none; }
+textarea.input.mono { font: 12px var(--mono); min-height: 80px; }
+.add-action { max-width: 260px; }
+.template-hint { margin-top: 8px; }
+.editor-foot { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--rule); padding-top: 12px; margin-top: 8px; }
+.try-note { font-size: 12px; color: var(--text-3); }
+.try-note.ok { color: var(--ok); }
+.try-note.warn { color: var(--warn); }
+@media (max-width: 900px) {
+  .rules-body { grid-template-columns: 1fr; }
+  .rule-list { border-right: 0; border-bottom: 1px solid var(--rule); }
+}

@@ -92,8 +92,13 @@ export class RuleEngine {
     return Promise.all(runs);
   }
 
-  private async runRule(rule: Rule, event: OjakgyoEvent): Promise<RuleRunResult> {
-    log.info(`▶ ${rule.name} ${'·'} ${event.type}${event.type === 'donation' ? ` ${event.amount}원` : ''}`);
+  /** Run one rule's actions for an event, skipping its conditions and cooldown (dashboard "Try"). */
+  fire(rule: Rule, event: OjakgyoEvent): Promise<RuleRunResult> {
+    return this.runRule(rule, event, ' (try)');
+  }
+
+  private async runRule(rule: Rule, event: OjakgyoEvent, note = ''): Promise<RuleRunResult> {
+    log.info(`▶ ${rule.name}${note} ${'·'} ${event.type}${event.type === 'donation' ? ` ${event.amount}원` : ''}`);
     let failed = 0;
     for (const action of rule.actions) {
       const handler = this.handlers[action.type] as ActionHandler | undefined;

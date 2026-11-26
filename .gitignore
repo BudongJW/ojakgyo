@@ -10,6 +10,8 @@ coverage/
 .ojakgyo/
 ojakgyo.yaml
 ojakgyo.yml
+*.yaml.bak
+*.yml.bak
 
 .DS_Store
 Thumbs.db
