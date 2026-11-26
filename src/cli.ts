@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-import { copyFileSync, existsSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { App } from './app.js';
+import { optimizeGlb } from './avatar/optimize.js';
 import { ConfigError, loadConfig } from './config.js';
 import { color, createLogger, errorMessage, setLogLevel } from './core/logger.js';
 import { VERSION } from './version.js';
@@ -19,6 +20,8 @@ ${color.bold('Usage')}
   ojakgyo start [-c file]       Start the bridge, dashboard and overlays
   ojakgyo simulate <type>       Send a test event to a running bridge
                                 type: chat | donation | subscription
+  ojakgyo avatar optimize <file.vrm> [-o out.vrm] [--max 1024]
+                                Shrink an avatar's textures for faster loading
 
 ${color.bold('Options')}
   -c, --config <file>           Config file (default: ./ojakgyo.yaml)
@@ -26,6 +29,8 @@ ${color.bold('Options')}
   -a, --amount <won>            simulate: donation amount in KRW
   -m, --message <text>          simulate: message text
   -p, --port <port>             simulate: bridge port (default 7979)
+  -o, --out <file>              avatar optimize: output file (default <name>.optimized.vrm)
+      --max <px>                avatar optimize: longest texture edge (default 1024)
       --debug                   Verbose logs
   -v, --version                 Print version
   -h, --help                    Show this help
@@ -119,6 +124,30 @@ async function cmdSimulate(type: string | undefined, v: Record<string, string | 
   log.info(`sent a simulated ${type}`);
 }
 
+function cmdAvatar(sub: string | undefined, file: string | undefined, v: Record<string, string | boolean | undefined>): void {
+  if (sub !== 'optimize' || !file) throw new Error('usage: ojakgyo avatar optimize <file.vrm> [-o out.vrm] [--max 1024]');
+  const maxSize = Number(v.max ?? 1024);
+  if (!Number.isInteger(maxSize) || maxSize < 64 || maxSize > 8192) throw new Error('--max must be a whole number between 64 and 8192');
+  const input = resolve(file);
+  const ext = extname(input) || '.vrm';
+  const out = resolve(typeof v.out === 'string' ? v.out : join(dirname(input), `${basename(input, ext)}.optimized${ext}`));
+  if (out === input) throw new Error('refusing to overwrite the input file; pick another --out');
+
+  const { output, report } = optimizeGlb(readFileSync(input), { maxSize });
+  const mb = (n: number) => `${(n / 1048576).toFixed(1)} MB`;
+  for (const img of report.images) {
+    log.info(`${img.name.padEnd(28).slice(0, 28)} ${img.from.join('×')} → ${img.to.join('×')}  ${mb(img.bytesBefore)} → ${mb(img.bytesAfter)}`);
+  }
+  if (report.images.length === 0) {
+    log.info(`nothing to do: every texture is already ${maxSize}px or smaller`);
+    return;
+  }
+  writeFileSync(out, output);
+  const saved = 1 - report.bytesAfter / report.bytesBefore;
+  log.info(`${color.bold(mb(report.bytesBefore))} → ${color.bold(mb(report.bytesAfter))} (${Math.round(saved * 100)}% smaller), ${report.images.length} textures resized`);
+  log.info(`wrote ${out}`);
+}
+
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -128,6 +157,8 @@ async function main(): Promise<void> {
       amount: { type: 'string', short: 'a' },
       message: { type: 'string', short: 'm' },
       port: { type: 'string', short: 'p' },
+      out: { type: 'string', short: 'o' },
+      max: { type: 'string' },
       debug: { type: 'boolean' },
       version: { type: 'boolean', short: 'v' },
       help: { type: 'boolean', short: 'h' },
@@ -144,6 +175,8 @@ async function main(): Promise<void> {
       return cmdInit();
     case 'simulate':
       return cmdSimulate(rest[0], values);
+    case 'avatar':
+      return cmdAvatar(rest[0], rest[1], values);
     case undefined:
     case 'help':
       return void console.log(HELP);

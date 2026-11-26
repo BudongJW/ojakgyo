@@ -128,7 +128,7 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
   <tr>
     <td colspan="2" valign="top">
       <h3>🧍 3D VRM avatar overlay</h3>
-      No VTube Studio? Point ojakgyo at a <b>.vrm</b> file (VRoid Studio exports one) and add <code>/overlay/avatar</code> to OBS. The avatar idles, blinks and looks at the viewer, <b>lip-syncs to donation TTS</b>, and reacts to events with the <code>avatar.expression</code> action. Works with VRM 0.x and 1.0 through <a href="https://github.com/pixiv/three-vrm">three-vrm</a>, no GPU-heavy setup.
+      No VTube Studio? Point ojakgyo at a <b>.vrm</b> file (VRoid Studio exports one) and add <code>/overlay/avatar</code> to OBS. The avatar idles, blinks and looks at the viewer, <b>lip-syncs to donation TTS</b>, and reacts to events with the <code>avatar.expression</code> action. Works with VRM 0.x and 1.0 through <a href="https://github.com/pixiv/three-vrm">three-vrm</a>, uses <b>Perfect Sync</b> (ARKit 52) faces when your model has them, and <code>ojakgyo avatar optimize</code> cuts heavy VRoid exports by 35–60%.
     </td>
   </tr>
 </table>
@@ -243,7 +243,7 @@ In OBS open **Tools → WebSocket Server Settings**, enable the server, put the 
 
 Streaming with a 3D model and no VTube Studio? ojakgyo can render a VRM avatar itself.
 
-1. Get a `.vrm` file. Export your own from [VRoid Studio](https://vroid.com/en/studio), or try the free sample [`VRM1_Constraint_Twist_Sample.vrm`](https://github.com/vrm-c/vrm-specification/tree/master/samples/VRM1_Constraint_Twist_Sample) (© pixiv Inc., VRM Public License 1.0; redistribution allowed, credit not required).
+1. Get a `.vrm` file: export your own from [VRoid Studio](https://vroid.com/en/studio), or start from one of the free models below.
 2. Put it next to `ojakgyo.yaml` and enable the avatar output:
    ```yaml
    outputs:
@@ -253,7 +253,41 @@ Streaming with a 3D model and no VTube Studio? ojakgyo can render a VRM avatar i
        view: bust             # bust (head and shoulders) or full
        lipSync: true          # mouth follows donation TTS
    ```
-3. Add `http://localhost:7979/overlay/avatar` to OBS as a browser source. Append `?view=full` to show the whole body, `?preview=1` to see it on a checkerboard in a normal browser, or `?demo=1` to cycle expressions while you position it.
+3. Add `http://localhost:7979/overlay/avatar` to OBS as a browser source. Append `?view=full` to show the whole body, `?preview=1` to see it on a checkerboard in a normal browser, `?demo=1` to cycle expressions while you position it, or `?demo=talk` to check lip-sync.
+
+**Free models that work well**
+
+| Model | Where | License (as embedded in the file) |
+| --- | --- | --- |
+| `VRM1_Constraint_Twist_Sample` | [vrm-c/vrm-specification](https://github.com/vrm-c/vrm-specification/tree/master/samples/VRM1_Constraint_Twist_Sample) | VRM Public License 1.0: redistribution allowed, credit not required |
+| `Seed-san` | [vrm-c/vrm-specification](https://github.com/vrm-c/vrm-specification/tree/master/samples/Seed-san) | VRM Public License 1.0: credit to VirtualCast, Inc. required |
+| VRoid official samples: Sendagaya Shino, Sakurada Fumiriya, Vita, Victoria Rubin, Sendagaya Shibu, Vivi | [VRoid Hub](https://hub.vroid.com/) (sign-in required) | CC0 |
+
+Always check the license stored inside a VRM before streaming with it; it can differ from what a download page says.
+
+**Perfect Sync models.** If your VRM carries the 52 ARKit blendshapes ("Perfect Sync", e.g. `JawOpen`, `EyeBlinkLeft`), the overlay detects them and uses the jaw and eyelid shapes for lip-sync and blinking instead of the basic presets. The dashboard log tells you which mode was picked.
+
+#### Make it load fast
+
+VRoid exports spend most of their bytes on textures, often several 2048² sheets. Shrink them before going live:
+
+```bash
+ojakgyo avatar optimize my-avatar.vrm            # writes my-avatar.optimized.vrm, textures at most 1024 px
+ojakgyo avatar optimize my-avatar.vrm --max 512  # smaller still, for slower PCs
+```
+
+Only the embedded images are resized (alpha-aware), so expressions, spring bones, MToon materials and the humanoid rig stay exactly as they were.
+
+<div align="center">
+  <img src="docs/assets/avatar-optimize.png" alt="Sendagaya Shino at original, 1024 px and 512 px textures" width="80%" />
+  <br/><sub>VRoid sample Sendagaya Shino (CC0). At 1024 px it is indistinguishable at stream size; 512 px softens fine eye detail.</sub>
+</div>
+
+| Model | Before | `--max 1024` | `--max 512` |
+| --- | ---: | ---: | ---: |
+| VRM1_Constraint_Twist_Sample | 10.3 MB | 6.6 MB | |
+| Sendagaya Shino (VRoid) | 14.4 MB | 8.9 MB | 5.9 MB |
+| Sakurada Fumiriya (VRoid) | 18.4 MB | 10.5 MB | |
 
 Make it react with rules:
 
@@ -263,7 +297,7 @@ rules:
     on: donation
     actions:
       - type: avatar.expression
-        expression: happy     # happy, angry, sad, relaxed, surprised, or a custom expression from your model
+        expression: happy     # happy, angry, sad, relaxed, surprised, a custom expression, or an ARKit name like MouthSmileLeft
         duration: 3
 ```
 
@@ -393,7 +427,9 @@ outputs:
 - [x] Dashboard in English and Korean
 - [x] Korean TTS: browser, OpenAI-compatible, GPT-SoVITS
 - [x] 3D VRM avatar overlay with TTS lip-sync and rule-driven expressions
-- [ ] Webcam face tracking for the 3D avatar (MediaPipe)
+- [x] Perfect Sync (ARKit 52) faces and `ojakgyo avatar optimize` for lighter VRMs
+- [ ] Webcam face tracking for the 3D avatar (MediaPipe, ARKit-compatible output)
+- [ ] 2D avatars: Inochi2D puppets as an overlay
 - [ ] **SOOP** connector (official Chat SDK through a headless relay)
 - [ ] **CIME** connector
 - [ ] YouTube Live chat

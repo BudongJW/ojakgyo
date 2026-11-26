@@ -1,5 +1,5 @@
 // VRM avatar overlay: idle motion, blinking, gaze, TTS lip-sync and rule-driven expressions.
-// Query: ?view=bust|full   ?preview=1 (checkerboard)   ?demo=1 (cycle expressions and talk)
+// Query: ?view=bust|full   ?preview=1 (checkerboard)   ?demo=1 (cycle expressions and talk)   ?demo=talk (talk only)
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
@@ -39,6 +39,25 @@ let frameTarget = null; // { center, height }
 const mouth = { target: 0, value: 0, lastSignal: 0 };
 const active = new Map(); // expression -> { weight, start, until }
 let nextBlink = 1.5;
+// Expression names resolved once per model. Perfect Sync models (ARKit 52) get their
+// jaw and eyelid shapes driven directly; plain VRMs fall back to the VRM presets.
+let rig = { blink: [], mouth: [], mouthShape: null, perfectSync: false };
+
+function resolveRig(em) {
+  const names = new Map(em.expressions.map((e) => [e.expressionName.toLowerCase(), e.expressionName]));
+  const find = (...candidates) => candidates.map((c) => names.get(c.toLowerCase())).find(Boolean) ?? null;
+  const jaw = find('jawOpen');
+  const blinkL = find('eyeBlinkLeft');
+  const blinkR = find('eyeBlinkRight');
+  const perfectSync = Boolean(jaw && blinkL && blinkR);
+  return {
+    perfectSync,
+    blink: perfectSync ? [blinkL, blinkR] : [find('blink')].filter(Boolean),
+    // Jaw drives the opening; a little 'aa' keeps the VRM mouth shape (teeth, tongue) in play.
+    mouth: perfectSync ? [jaw] : [find('aa')].filter(Boolean),
+    mouthShape: perfectSync ? find('aa') : null,
+  };
+}
 
 function frameCamera() {
   if (!frameTarget) return;
@@ -69,6 +88,7 @@ async function load(view) {
   vrm.scene.traverse((o) => (o.frustumCulled = false));
   scene.add(vrm.scene);
   if (vrm.lookAt) vrm.lookAt.target = camera;
+  if (vrm.expressionManager) rig = resolveRig(vrm.expressionManager);
 
   applyPose(0);
   vrm.update(0);
@@ -134,10 +154,14 @@ function tick() {
           active.delete(name);
         }
       }
-      if (em.getExpression('blink')) em.setValue('blink', blinkWeight(t));
+      const blink = blinkWeight(t);
+      for (const name of rig.blink) em.setValue(name, blink);
       if (performance.now() - mouth.lastSignal > 180) mouth.target = 0;
       mouth.value += (mouth.target - mouth.value) * Math.min(1, delta * 18);
-      if (em.getExpression('aa')) em.setValue('aa', Math.min(1, mouth.value));
+      const open = Math.min(1, mouth.value);
+      // ARKit jawOpen = 1 is a yawn; speech lives in roughly the lower half of the range.
+      for (const name of rig.mouth) em.setValue(name, rig.perfectSync ? open * 0.55 : open);
+      if (rig.mouthShape) em.setValue(rig.mouthShape, open * 0.3);
     }
     vrm.update(delta);
   }
@@ -145,7 +169,7 @@ function tick() {
 }
 
 /* ── wiring ── */
-connect('avatar', (msg) => {
+const bridge = connect('avatar', (msg) => {
   if (msg.kind === 'mouth') {
     mouth.target = Math.max(0, Math.min(1, msg.level * 1.4));
     mouth.lastSignal = performance.now();
@@ -169,11 +193,18 @@ async function main() {
     return;
   }
   document.title = 'ojakgyo · avatar · ready';
+  bridge.send({
+    kind: 'avatar-info',
+    perfectSync: rig.perfectSync,
+    expressions: vrm.expressionManager?.expressions.length ?? 0,
+    vrmVersion: vrm.meta?.metaVersion === '0' ? '0.x' : '1.0',
+  });
 
   if (params.has('demo')) {
+    // ?demo=1 cycles expressions and talks; ?demo=talk only talks (for checking lip-sync).
     const names = ['happy', 'surprised', 'relaxed', 'angry', 'sad'];
     let i = 0;
-    setInterval(() => {
+    if (params.get('demo') !== 'talk') setInterval(() => {
       const t = clock.elapsedTime;
       active.set(names[i++ % names.length], { weight: 1, start: t, until: t + 2 });
     }, 3500);

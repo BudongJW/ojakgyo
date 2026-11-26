@@ -187,7 +187,11 @@ export class OverlayServer {
     }
     ws.on('message', (raw) => {
       try {
-        const msg = JSON.parse(raw.toString()) as { kind?: string; level?: number };
+        const msg = JSON.parse(raw.toString()) as { kind?: string; level?: number; perfectSync?: unknown; expressions?: unknown; vrmVersion?: unknown };
+        if (msg.kind === 'avatar-info' && role === 'avatar') {
+          const ps = msg.perfectSync === true ? 'Perfect Sync (ARKit) face' : 'VRM preset face';
+          log.info(`avatar loaded: VRM ${String(msg.vrmVersion ?? '?').slice(0, 8)}, ${Number(msg.expressions) || 0} expressions, ${ps}`);
+        }
         if (msg.kind === 'mouth' && typeof msg.level === 'number' && Number.isFinite(msg.level)) {
           const level = Math.max(0, Math.min(1, msg.level));
           this.hooks.onMouth(level);
