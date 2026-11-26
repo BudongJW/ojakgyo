@@ -15,6 +15,7 @@ function applyLang(lang) {
   for (const b of document.querySelectorAll('#lang button')) b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()));
   renderStatuses();
   renderEvents();
+  renderLicense();
   rerenderRules();
 }
 
@@ -64,6 +65,50 @@ function renderStatuses() {
     }
     root.append(cell);
   }
+}
+
+/* ── avatar license ── */
+let avatarLicense = null;
+const VERDICT_DOT = { ok: 'connected', check: 'connecting', blocked: 'error', unknown: 'connecting' };
+const safeUrl = (u) => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : null);
+
+function renderLicense() {
+  const box = document.getElementById('avatarLicense');
+  const l = avatarLicense;
+  box.hidden = !l;
+  if (!l) return;
+  box.replaceChildren();
+  const head = el('div', 'verdict');
+  head.append(el('span', `dot ${VERDICT_DOT[l.verdict] ?? 'idle'}`), el('span', '', t(`license.${l.verdict}`)));
+  box.append(el('div', 'label', t('license.title')), head);
+  const who = [l.title, l.authors.length ? t('license.by', { authors: l.authors.join(', ') }) : '', t(`license.format.${l.format}`)].filter(Boolean).join(' · ');
+  const whoLine = el('div', 'who', who);
+  const url = safeUrl(l.license);
+  if (url) {
+    const a = el('a', '', t('license.text'));
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    whoLine.append(document.createTextNode(' · '), a);
+  }
+  box.append(whoLine);
+  if (l.notes.length) {
+    const list = el('ul');
+    for (const n of l.notes) {
+      const item = el('li', n.level === 'info' ? '' : n.level, t(`license.note.${n.code}`));
+      const link = safeUrl(n.url);
+      if (link) {
+        const a = el('a', '', link);
+        a.href = link;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        item.append(document.createTextNode(' '), a);
+      }
+      list.append(item);
+    }
+    box.append(list);
+  }
+  box.append(el('p', 'hint', t('license.hint')));
 }
 
 /* ── events ── */
@@ -132,6 +177,14 @@ connect('dashboard', (msg) => {
   } else if (msg.kind === 'event') addEvent(msg.event);
   else if (msg.kind === 'log') addLog(msg.record);
 });
+
+fetch('/api/avatar')
+  .then((r) => r.json())
+  .then((a) => {
+    avatarLicense = a.license ?? null;
+    renderLicense();
+  })
+  .catch(() => {});
 
 fetch('/api/state')
   .then((r) => r.json())

@@ -110,7 +110,7 @@ rules:
     writeFileSync(model, Buffer.from('glTF-fake-model'));
     const { base } = await boot(`outputs:\n  avatar: { enabled: true, model: ${JSON.stringify(model)}, view: full }\n`);
 
-    expect(await (await fetch(`${base}/api/avatar`)).json()).toEqual({ enabled: true, view: 'full', lipSync: true, hasModel: true, format: 'vrm' });
+    expect(await (await fetch(`${base}/api/avatar`)).json()).toEqual({ enabled: true, view: 'full', lipSync: true, hasModel: true, format: 'vrm', license: null });
     const vrm = await fetch(`${base}/avatar/model.vrm`);
     expect(vrm.status).toBe(200);
     expect(vrm.headers.get('content-type')).toBe('model/gltf-binary');

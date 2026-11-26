@@ -4,6 +4,7 @@ import { basename, dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { App } from './app.js';
+import { describeLicense, readAvatarLicense } from './avatar/license.js';
 import { optimizeGlb } from './avatar/optimize.js';
 import { ConfigError, loadConfig } from './config.js';
 import { color, createLogger, errorMessage, setLogLevel } from './core/logger.js';
@@ -22,6 +23,7 @@ ${color.bold('Usage')}
                                 type: chat | donation | subscription
   ojakgyo avatar optimize <file.vrm> [-o out.vrm] [--max 1024]
                                 Shrink an avatar's textures for faster loading
+  ojakgyo avatar info <file>    Show what an avatar's own license allows (.vrm, .inp, .inx)
 
 ${color.bold('Options')}
   -c, --config <file>           Config file (default: ./ojakgyo.yaml)
@@ -124,8 +126,19 @@ async function cmdSimulate(type: string | undefined, v: Record<string, string | 
   log.info(`sent a simulated ${type}`);
 }
 
+function cmdAvatarInfo(file: string): void {
+  const l = readAvatarLicense(resolve(file));
+  const verdictLog = l.verdict === 'ok' ? log.info : log.warn;
+  verdictLog(describeLicense(l));
+  const format = { vrm1: 'VRM 1.0', vrm0: 'VRM 0.x', inochi2d: 'Inochi2D puppet', glb: 'glTF without VRM data' }[l.format];
+  log.info(`format ${format}${l.license ? ` · license ${l.license}` : ''}`);
+  for (const n of l.notes) (n.level === 'info' ? log.info : log.warn)(`${n.text}${n.url ? ` ${n.url}` : ''}`);
+  log.info(color.dim("These are the file's own fields. A model converted from someone else's character keeps the original owner's terms."));
+}
+
 function cmdAvatar(sub: string | undefined, file: string | undefined, v: Record<string, string | boolean | undefined>): void {
-  if (sub !== 'optimize' || !file) throw new Error('usage: ojakgyo avatar optimize <file.vrm> [-o out.vrm] [--max 1024]');
+  if (sub === 'info' && file) return cmdAvatarInfo(file);
+  if (sub !== 'optimize' || !file) throw new Error('usage: ojakgyo avatar optimize <file.vrm> [-o out.vrm] [--max 1024]  |  ojakgyo avatar info <file>');
   const maxSize = Number(v.max ?? 1024);
   if (!Number.isInteger(maxSize) || maxSize < 64 || maxSize > 8192) throw new Error('--max must be a whole number between 64 and 8192');
   const input = resolve(file);
@@ -143,6 +156,14 @@ function cmdAvatar(sub: string | undefined, file: string | undefined, v: Record<
     return;
   }
   writeFileSync(out, output);
+  // The copy keeps the original's license; say so when that license limits what the copy may be.
+  try {
+    const license = readAvatarLicense(input);
+    if (license.notes.some((n) => n.code === 'noModification')) log.warn("this model's license does not allow modification: keep the optimized copy to yourself, or ask the author first");
+    if (license.notes.some((n) => n.code === 'noRedistribution')) log.info("this model's license does not allow sharing the file, and that covers the optimized copy too");
+  } catch {
+    /* license fields are informational */
+  }
   const saved = 1 - report.bytesAfter / report.bytesBefore;
   log.info(`${color.bold(mb(report.bytesBefore))} → ${color.bold(mb(report.bytesAfter))} (${Math.round(saved * 100)}% smaller), ${report.images.length} textures resized`);
   log.info(`wrote ${out}`);

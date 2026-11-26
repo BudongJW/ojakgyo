@@ -265,6 +265,17 @@ Streaming with a 3D model and no VTube Studio? ojakgyo can render a VRM avatar i
 
 Always check the license stored inside a VRM before streaming with it; it can differ from what a download page says.
 
+**ojakgyo reads that license for you.** When the bridge starts, it reads the usage fields stored in the model (VRM 1.0 and 0.x meta, or an Inochi2D puppet's license URL) and shows on the dashboard, under the avatar's browser source, whether they allow a monetized stream:
+
+| Shown as | When the file says |
+| --- | --- |
+| Not allowed on monetized streams | non-commercial only (including CC BY-NC), or only the author may appear as the avatar |
+| Check the terms first | only separately licensed people may use it, or it links to extra terms |
+| Does not say | no usage fields at all, as in many converted models |
+| Allowed | anything else, with credit, no-redistribution and no-modification rules listed as notes |
+
+Check a file before you set it up with `ojakgyo avatar info my-avatar.vrm`; `avatar optimize` also warns when a model's license forbids modifying it. These are the file's own fields: a model converted from someone else's character, such as an official game model, keeps the original owner's terms whatever the file says.
+
 **Perfect Sync models.** If your VRM carries the 52 ARKit blendshapes ("Perfect Sync", e.g. `JawOpen`, `EyeBlinkLeft`), the overlay detects them and uses the jaw and eyelid shapes for lip-sync and blinking instead of the basic presets. The dashboard log tells you which mode was picked.
 
 #### Webcam face tracking

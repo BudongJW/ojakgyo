@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import { describeLicense, readAvatarLicense, type AvatarLicense } from './avatar/license.js';
 import { validateRules, type Action, type LoadedConfig, type Rule } from './config.js';
 import { ChzzkConnector } from './connectors/chzzk/connector.js';
 import { EVENT_TYPES, newEventId, ROLES, type EventType, type OjakgyoEvent } from './core/events.js';
@@ -59,6 +60,7 @@ export class App {
         })
       : null;
 
+    const modelPath = this.avatarModelPath();
     this.server = new OverlayServer(host, port, {
       hub: this.hub,
       version: VERSION,
@@ -69,7 +71,8 @@ export class App {
         enabled: config.outputs.avatar.enabled,
         view: config.outputs.avatar.view,
         lipSync: config.outputs.avatar.lipSync,
-        modelPath: this.avatarModelPath(),
+        modelPath,
+        license: this.avatarLicense(modelPath),
       },
       faceModel: () => this.faceModel(),
       rules: {
@@ -99,6 +102,27 @@ export class App {
     if (!existsSync(file)) log.warn(`avatar model not found: ${file}`);
     else if (!/\.(vrm|glb|inp|inx)$/i.test(file)) log.warn(`avatar model should be a .vrm (3D) or .inp / .inx (Inochi2D) file: ${file}`);
     return file;
+  }
+
+  /** Read the usage terms stored in the model and say what they mean for a monetized stream. */
+  private avatarLicense(file: string | null): AvatarLicense | null {
+    if (!file || !existsSync(file)) return null;
+    let license: AvatarLicense;
+    try {
+      license = readAvatarLicense(file);
+    } catch (err) {
+      log.warn(`could not read the avatar's license: ${errorMessage(err)}`);
+      return null;
+    }
+    const summary = `avatar license: ${describeLicense(license)}`;
+    if (license.verdict === 'ok') log.info(summary);
+    else log.warn(summary);
+    for (const n of license.notes) {
+      const line = `  ${n.text}${n.url ? ` (${n.url})` : ''}`;
+      if (n.level === 'info') log.info(line);
+      else log.warn(line);
+    }
+    return license;
   }
 
   private faceModelDownload: Promise<string> | null = null;

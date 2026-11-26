@@ -8,6 +8,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { createLogger, errorMessage, onLog, type LogRecord } from '../core/logger.js';
 import type { Hub } from '../core/hub.js';
 import type { OjakgyoEvent } from '../core/events.js';
+import type { AvatarLicense } from '../avatar/license.js';
 
 const log = createLogger('server');
 
@@ -130,6 +131,8 @@ export interface ServerHooks {
     lipSync: boolean;
     /** Absolute path of the configured .vrm, or null. Never sent to the browser. */
     modelPath: string | null;
+    /** Usage terms read from the model file, or null when there is no readable model. */
+    license: AvatarLicense | null;
   };
   /** Path to the MediaPipe face model, downloading it on first use. */
   faceModel(): Promise<string>;
@@ -306,7 +309,7 @@ export class OverlayServer {
 
     if (req.method === 'GET' && path === '/api/avatar') {
       const a = this.hooks.avatar;
-      return sendJson(res, 200, { enabled: a.enabled, view: a.view, lipSync: a.lipSync, hasModel: a.enabled && !!a.modelPath, format: avatarFormat(a.modelPath) });
+      return sendJson(res, 200, { enabled: a.enabled, view: a.view, lipSync: a.lipSync, hasModel: a.enabled && !!a.modelPath, format: avatarFormat(a.modelPath), license: a.license });
     }
     if (req.method === 'GET' && (path === '/avatar/model' || path === '/avatar/model.vrm')) {
       const file = this.hooks.avatar.enabled ? this.hooks.avatar.modelPath : null;

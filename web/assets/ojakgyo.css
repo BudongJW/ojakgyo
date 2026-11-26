@@ -157,6 +157,18 @@ body.callback main { width: min(420px, 90vw); background: var(--surface); border
 body.callback h1 { margin: 0 0 8px; font-size: 17px; }
 body.callback p { color: var(--text-2); margin: 0 0 16px; }
 
+/* avatar license (under the browser sources) */
+.avatar-license { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 5px; font-size: 12px; }
+.avatar-license .label { color: var(--text-3); }
+.avatar-license .verdict { display: flex; align-items: center; gap: 7px; margin-top: 2px; font-weight: 600; font-size: 13px; }
+.avatar-license .who { color: var(--text-2); margin-top: 2px; overflow-wrap: anywhere; }
+.avatar-license a { color: var(--text-2); }
+.avatar-license ul { margin: 8px 0 0; padding-left: 16px; color: var(--text-2); }
+.avatar-license li + li { margin-top: 2px; }
+.avatar-license li.blocked { color: var(--bad); }
+.avatar-license li.check { color: var(--warn); }
+.avatar-license .hint { margin: 8px 0 0; }
+
 /* ───────────── rule editor ───────────── */
 .rules { margin-top: 20px; }
 .head-actions { display: flex; align-items: center; gap: 8px; }
