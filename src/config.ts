@@ -89,6 +89,15 @@ const ObsFilterAction = z.object({
   duration: seconds.optional(),
 });
 
+const AvatarExpressionAction = z.object({
+  type: z.literal('avatar.expression'),
+  /** VRM expression: happy, angry, sad, relaxed, surprised, or a custom name from your model. */
+  expression: z.string().default('happy'),
+  weight: z.number().min(0).max(1).default(1),
+  /** Seconds to hold the expression before fading back. */
+  duration: seconds.default(3),
+});
+
 const ChatSendAction = z.object({
   type: z.literal('chat.send'),
   /** Max 100 characters on CHZZK. */
@@ -118,6 +127,7 @@ export const ActionSchema = z.discriminatedUnion('type', [
   ObsSceneAction,
   ObsSourceAction,
   ObsFilterAction,
+  AvatarExpressionAction,
   ChatSendAction,
   DelayAction,
   WebhookAction,
@@ -198,6 +208,16 @@ const ObsSchema = z.object({
   password: z.string().default(''),
 });
 
+const AvatarSchema = z.object({
+  enabled: z.boolean().default(false),
+  /** Path to a .vrm file (relative to this config file) shown by /overlay/avatar. */
+  model: z.string().default(''),
+  /** Default framing: `bust` (head and shoulders) or `full` (whole body). */
+  view: z.enum(['bust', 'full']).default('bust'),
+  /** Move the mouth while donation TTS plays. */
+  lipSync: z.boolean().default(true),
+});
+
 const TtsSchema = z.object({
   /**
    * - `none`: TTS disabled
@@ -240,8 +260,9 @@ export const ConfigSchema = z.object({
       vtubeStudio: VtsSchema.default(VtsSchema.parse({})),
       obs: ObsSchema.default(ObsSchema.parse({})),
       tts: TtsSchema.default(TtsSchema.parse({})),
+      avatar: AvatarSchema.default(AvatarSchema.parse({})),
     })
-    .default({ vtubeStudio: VtsSchema.parse({}), obs: ObsSchema.parse({}), tts: TtsSchema.parse({}) }),
+    .default({ vtubeStudio: VtsSchema.parse({}), obs: ObsSchema.parse({}), tts: TtsSchema.parse({}), avatar: AvatarSchema.parse({}) }),
   /** Name used when a donation has no nickname. */
   anonymousName: z.string().default('익명의 후원자'),
   rules: z.array(RuleSchema).default([]),
@@ -249,6 +270,7 @@ export const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 export type TtsConfig = Config['outputs']['tts'];
+export type AvatarConfig = Config['outputs']['avatar'];
 
 export interface LoadedConfig {
   config: Config;

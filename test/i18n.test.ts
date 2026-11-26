@@ -27,7 +27,7 @@ describe('dashboard i18n', () => {
     setLang('ko');
     expect(t('state.chzzk.login')).toBe('로그인 필요');
     expect(t('won', { n: '10,000' })).toBe('10,000원');
-    expect(translateDetail('2 alert · 1 chat')).toBe('알림 2 · 채팅 1');
+    expect(translateDetail('2 alert · 1 chat · 1 avatar')).toBe('알림 2 · 채팅 1 · 아바타 1');
     expect(translateDetail('Permission revoked: DONATION')).toBe('권한이 회수됨: DONATION');
     expect(translateDetail('connect ECONNREFUSED 127.0.0.1:8001')).toBe('connect ECONNREFUSED 127.0.0.1:8001');
     setLang('en');

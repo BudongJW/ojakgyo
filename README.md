@@ -74,6 +74,12 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
       <br/><sub><b>Chat overlay</b>: transparent background, role labels, CHZZK emoji.</sub>
     </td>
   </tr>
+  <tr>
+    <td colspan="2" align="center">
+      <img src="docs/assets/avatar-overlay.png" alt="3D VRM avatar overlay" width="360" />
+      <br/><sub><b>Avatar overlay</b>: your VRM model on a transparent background. It breathes, blinks, looks at the camera, lip-syncs to donation TTS and changes expression from your rules. Model: <a href="https://github.com/vrm-c/vrm-specification/tree/master/samples/VRM1_Constraint_Twist_Sample">VRM1_Constraint_Twist_Sample</a> (© pixiv Inc., VRM Public License 1.0).</sub>
+    </td>
+  </tr>
 </table>
 
 ## 🌟 Features
@@ -119,6 +125,12 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
       Runs on your PC and binds to <code>127.0.0.1</code>. You bring your own API keys, tokens stay in a git-ignored file, and the server rejects requests from other websites, so a random page can't fake a donation on your stream.
     </td>
   </tr>
+  <tr>
+    <td colspan="2" valign="top">
+      <h3>🧍 3D VRM avatar overlay</h3>
+      No VTube Studio? Point ojakgyo at a <b>.vrm</b> file (VRoid Studio exports one) and add <code>/overlay/avatar</code> to OBS. The avatar idles, blinks and looks at the viewer, <b>lip-syncs to donation TTS</b>, and reacts to events with the <code>avatar.expression</code> action. Works with VRM 0.x and 1.0 through <a href="https://github.com/pixiv/three-vrm">three-vrm</a>, no GPU-heavy setup.
+    </td>
+  </tr>
 </table>
 
 ## 🧭 How it works
@@ -143,6 +155,7 @@ flowchart LR
         OVERLAY["Alert and chat overlays"]
         TTS["Korean TTS"]
         HOOK["Webhooks"]
+        AVATAR["3D avatar overlay"]
     end
 
     CHZZK --> HUB
@@ -155,8 +168,10 @@ flowchart LR
     RULES --> OVERLAY
     RULES --> HOOK
     RULES --> TTS
+    RULES --> AVATAR
     TTS --> OVERLAY
     OVERLAY -.->|lip-sync levels| VTS
+    OVERLAY -.->|lip-sync levels| AVATAR
 ```
 
 Every connector turns platform payloads into one shape (`chat`, `donation`, `subscription`), so a rule written today keeps working when SOOP and CIME arrive.
@@ -195,6 +210,7 @@ Open **http://localhost:7979**, send a test donation from the test bench, and wa
 1. **Sources → + → Browser**, paste `http://localhost:7979/overlay/alerts`, size **1920×1080**.
 2. Tick **Control audio via OBS** so TTS and alert sounds go through your audio mixer.
 3. Repeat with `http://localhost:7979/overlay/chat` at **500×800** for the chat box.
+4. Using a 3D avatar? Add `http://localhost:7979/overlay/avatar` at **1080×1080** (see [3D avatar](#-3d-avatar-vrm)).
 
 > [!TIP]
 > Append `?preview=1` to see a checkerboard behind an overlay in a normal browser. On the alert overlay, `?demo=1` loops a sample alert while you position it and `?position=center` or `?position=bottom` moves the card.
@@ -222,6 +238,37 @@ In VTube Studio open **Settings → Start API (allow plugins)**, keep port `8001
 ### 🎬 Connect OBS
 
 In OBS open **Tools → WebSocket Server Settings**, enable the server, put the password in `.env` as `OBS_PASSWORD`, and set `outputs.obs.enabled: true`.
+
+### 🧍 3D avatar (VRM)
+
+Streaming with a 3D model and no VTube Studio? ojakgyo can render a VRM avatar itself.
+
+1. Get a `.vrm` file. Export your own from [VRoid Studio](https://vroid.com/en/studio), or try the free sample [`VRM1_Constraint_Twist_Sample.vrm`](https://github.com/vrm-c/vrm-specification/tree/master/samples/VRM1_Constraint_Twist_Sample) (© pixiv Inc., VRM Public License 1.0; redistribution allowed, credit not required).
+2. Put it next to `ojakgyo.yaml` and enable the avatar output:
+   ```yaml
+   outputs:
+     avatar:
+       enabled: true
+       model: my-avatar.vrm   # relative to ojakgyo.yaml
+       view: bust             # bust (head and shoulders) or full
+       lipSync: true          # mouth follows donation TTS
+   ```
+3. Add `http://localhost:7979/overlay/avatar` to OBS as a browser source. Append `?view=full` to show the whole body, `?preview=1` to see it on a checkerboard in a normal browser, or `?demo=1` to cycle expressions while you position it.
+
+Make it react with rules:
+
+```yaml
+rules:
+  - name: Avatar smiles on donations
+    on: donation
+    actions:
+      - type: avatar.expression
+        expression: happy     # happy, angry, sad, relaxed, surprised, or a custom expression from your model
+        duration: 3
+```
+
+> [!NOTE]
+> The avatar overlay animates on its own (breathing, blinking, gaze) and lip-syncs to TTS. It does **not** track your face yet; for face tracking keep using VTube Studio or another tracker. The model file is read from your disk and served only to `localhost`. It is never uploaded, and ojakgyo does not bundle any model. Check the license embedded in your VRM before streaming with it.
 
 ## 🧩 Rules
 
@@ -300,6 +347,7 @@ Rule-level options: `cooldown` (seconds), `stop: true` (skip later rules when th
 | `obs.scene` | `scene`, `revertAfter` | Switches scene, optionally switching back |
 | `obs.source` | `scene`, `source`, `visible`, `duration` | Shows or hides a source |
 | `obs.filter` | `source`, `filter`, `enabled`, `duration` | Toggles a filter |
+| `avatar.expression` | `expression`, `weight`, `duration` | Shows a VRM expression on the 3D avatar overlay, then fades back |
 | `chat.send` | `message` | Posts to your CHZZK chat (max 100 characters) |
 | `delay` | `seconds` | Waits before the next action in the rule |
 | `webhook` | `url`, `method`, `body` | Sends the event (or a templated body) anywhere, e.g. Discord |
@@ -344,6 +392,8 @@ outputs:
 - [x] Alert and chat overlays, dashboard, test bench, CLI
 - [x] Dashboard in English and Korean
 - [x] Korean TTS: browser, OpenAI-compatible, GPT-SoVITS
+- [x] 3D VRM avatar overlay with TTS lip-sync and rule-driven expressions
+- [ ] Webcam face tracking for the 3D avatar (MediaPipe)
 - [ ] **SOOP** connector (official Chat SDK through a headless relay)
 - [ ] **CIME** connector
 - [ ] YouTube Live chat
@@ -374,7 +424,9 @@ No. ojakgyo is an event bridge. Only an optional local TTS engine (such as GPT-S
 <details>
 <summary><b>Does it replace VTube Studio or ship Live2D code?</b></summary>
 
-No. VTube Studio loads and renders your model; ojakgyo drives it through VTube Studio's public plugin API. No Live2D Cubism code or sample models are bundled.
+No. For Live2D models, VTube Studio loads and renders your model, and ojakgyo drives it through VTube Studio's public plugin API. No Live2D Cubism code or sample models are bundled.
+
+For 3D VRM models, ojakgyo can render the avatar itself with the MIT-licensed three-vrm library (see [3D avatar](#-3d-avatar-vrm)). It does not do face tracking yet, so it complements a tracker rather than replacing one.
 </details>
 
 <details>

@@ -1,6 +1,8 @@
-import { readFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { readFile, stat } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
-import { extname, join, normalize, resolve, sep } from 'node:path';
+import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { createLogger, errorMessage, onLog, type LogRecord } from '../core/logger.js';
@@ -32,12 +34,32 @@ const PAGES: Record<string, string> = {
   '/': 'dashboard.html',
   '/overlay/alerts': 'overlay-alerts.html',
   '/overlay/chat': 'overlay-chat.html',
+  '/overlay/avatar': 'overlay-avatar.html',
+};
+
+/**
+ * Browser modules the avatar overlay imports, served straight from node_modules
+ * so the overlay works offline and without a bundler. Only .js files are served.
+ */
+const require = createRequire(import.meta.url);
+function packageRoot(entry: string): string | null {
+  try {
+    return dirname(dirname(require.resolve(entry)));
+  } catch {
+    return null;
+  }
+}
+export const VENDOR_ROOTS: Record<string, string | null> = {
+  three: packageRoot('three'),
+  'three-vrm': packageRoot('@pixiv/three-vrm'),
 };
 
 export type OverlayMessage =
   | { kind: 'event'; event: OjakgyoEvent }
   | { kind: 'status'; statuses: ReturnType<Hub['getStatuses']> }
   | { kind: 'log'; record: LogRecord }
+  | { kind: 'mouth'; level: number }
+  | { kind: 'avatar'; expression: string; weight: number; duration: number }
   | {
       kind: 'alert';
       id: string;
@@ -61,6 +83,13 @@ export interface ServerHooks {
   /** Overlay audio level, 0..1, for lip-sync. */
   onMouth(level: number): void;
   simulate(input: Record<string, unknown>): OjakgyoEvent;
+  avatar: {
+    enabled: boolean;
+    view: 'bust' | 'full';
+    lipSync: boolean;
+    /** Absolute path of the configured .vrm, or null. Never sent to the browser. */
+    modelPath: string | null;
+  };
   chzzk?: {
     beginLogin(): string;
     completeLogin(code: string, state: string): Promise<string>;
@@ -159,7 +188,11 @@ export class OverlayServer {
     ws.on('message', (raw) => {
       try {
         const msg = JSON.parse(raw.toString()) as { kind?: string; level?: number };
-        if (msg.kind === 'mouth' && typeof msg.level === 'number') this.hooks.onMouth(msg.level);
+        if (msg.kind === 'mouth' && typeof msg.level === 'number' && Number.isFinite(msg.level)) {
+          const level = Math.max(0, Math.min(1, msg.level));
+          this.hooks.onMouth(level);
+          if (this.hooks.avatar.lipSync) this.broadcast({ kind: 'mouth', level }, 'avatar');
+        }
       } catch {
         /* ignore */
       }
@@ -173,9 +206,10 @@ export class OverlayServer {
   private updateOverlayStatus(): void {
     const alerts = this.overlayCount('alerts');
     const chat = this.overlayCount('chat');
-    const total = alerts + chat;
+    const avatar = this.overlayCount('avatar');
+    const total = alerts + chat + avatar;
     this.hooks.hub.setStatus('overlay', 'Overlays', total > 0 ? 'connected' : 'disconnected', {
-      detail: total > 0 ? `${alerts} alert · ${chat} chat` : 'No overlay open. Add it as an OBS browser source',
+      detail: total > 0 ? `${alerts} alert · ${chat} chat · ${avatar} avatar` : 'No overlay open. Add it as an OBS browser source',
     });
   }
 
@@ -192,6 +226,24 @@ export class OverlayServer {
 
     if (req.method === 'GET' && PAGES[path]) return this.serveFile(res, PAGES[path]!);
     if (req.method === 'GET' && path.startsWith('/assets/')) return this.serveFile(res, path.slice(1));
+    if (req.method === 'GET' && path.startsWith('/vendor/')) return this.serveVendor(res, path.slice('/vendor/'.length));
+
+    if (req.method === 'GET' && path === '/api/avatar') {
+      const a = this.hooks.avatar;
+      return sendJson(res, 200, { enabled: a.enabled, view: a.view, lipSync: a.lipSync, hasModel: a.enabled && !!a.modelPath });
+    }
+    if (req.method === 'GET' && path === '/avatar/model.vrm') {
+      const file = this.hooks.avatar.enabled ? this.hooks.avatar.modelPath : null;
+      if (!file) return sendJson(res, 404, { error: 'no avatar model configured' });
+      try {
+        const info = await stat(file);
+        res.writeHead(200, { 'Content-Type': 'model/gltf-binary', 'Content-Length': info.size, 'Cache-Control': 'no-cache' });
+        createReadStream(file).pipe(res);
+      } catch {
+        sendJson(res, 404, { error: 'avatar model file not found' });
+      }
+      return;
+    }
 
     if (req.method === 'GET' && path.startsWith('/tts/')) {
       const clip = this.hooks.ttsClip(path.slice(5));
@@ -206,7 +258,7 @@ export class OverlayServer {
         statuses: this.hooks.hub.getStatuses(),
         events: this.hooks.hub.recentEvents(),
         logs: this.logs,
-        overlays: { alerts: `${this.origin}/overlay/alerts`, chat: `${this.origin}/overlay/chat` },
+        overlays: { alerts: `${this.origin}/overlay/alerts`, chat: `${this.origin}/overlay/chat`, avatar: `${this.origin}/overlay/avatar` },
       });
     }
 
@@ -251,6 +303,22 @@ export class OverlayServer {
     }
 
     sendJson(res, 404, { error: 'not found' });
+  }
+
+  private async serveVendor(res: ServerResponse, rest: string): Promise<void> {
+    const slash = rest.indexOf('/');
+    const root = slash > 0 ? VENDOR_ROOTS[rest.slice(0, slash)] : null;
+    const relative = slash > 0 ? rest.slice(slash + 1) : '';
+    if (!root || extname(relative) !== '.js') return sendJson(res, 404, { error: 'not found' });
+    const target = normalize(join(root, relative));
+    if (!target.startsWith(root + sep)) return sendJson(res, 403, { error: 'forbidden' });
+    try {
+      const data = await readFile(target);
+      res.writeHead(200, { 'Content-Type': MIME['.js']!, 'Cache-Control': 'max-age=3600' });
+      res.end(data);
+    } catch {
+      sendJson(res, 404, { error: 'not found' });
+    }
   }
 
   private async serveFile(res: ServerResponse, relative: string): Promise<void> {

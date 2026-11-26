@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>ojakgyo · avatar</title>
+  <style>
+    :root { --font: 'Pretendard Variable', Pretendard, system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
+    html, body { margin: 0; background: transparent; overflow: hidden; width: 100vw; height: 100vh; font-family: var(--font); }
+    body.preview { background: repeating-conic-gradient(#2a2a2e 0% 25%, #222226 0% 50%) 50% / 24px 24px; }
+    canvas { display: block; }
+    .notice { position: fixed; left: 16px; bottom: 16px; max-width: 420px; color: #e6e6e9; background: rgba(16, 17, 19, 0.85); border-radius: 6px; padding: 10px 12px; font-size: 13px; line-height: 1.5; }
+    .notice code { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/vendor/three/build/three.module.js",
+      "three/addons/": "/vendor/three/examples/jsm/",
+      "@pixiv/three-vrm": "/vendor/three-vrm/lib/three-vrm.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <script type="module" src="/assets/overlay-avatar.js"></script>
+</body>
+</html>

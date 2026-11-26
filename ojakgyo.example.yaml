@@ -31,6 +31,12 @@ outputs:
     url: ws://127.0.0.1:4455   # OBS → Tools → WebSocket Server Settings
     password: ${OBS_PASSWORD}
 
+  avatar:
+    enabled: false
+    model: my-avatar.vrm       # a VRoid / VRM file, relative to this config
+    view: bust                 # bust | full
+    lipSync: true              # mouth follows donation TTS
+
   tts:
     # none | browser | openai | gpt-sovits
     # browser    → zero setup, uses the OS voices through the overlay
@@ -88,6 +94,14 @@ rules:
         message: "티어 {tier} · 환영합니다"
         tts: "{nickname}님 {months}개월 구독 감사합니다!"
         accent: "#8fd3ff"
+
+  # With outputs.avatar enabled, make the 3D avatar smile on donations:
+  # - name: Avatar smiles
+  #   on: donation
+  #   actions:
+  #     - type: avatar.expression
+  #       expression: happy
+  #       duration: 3
 
   - name: "!hat command"
     on: chat

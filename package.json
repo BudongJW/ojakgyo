@@ -1,7 +1,7 @@
 {
   "name": "ojakgyo",
   "version": "0.1.0",
-  "description": "The magpie bridge between Korean live-streaming platforms and your VTuber setup. Route CHZZK chat, donations and subscriptions to VTube Studio, OBS, browser overlays and Korean TTS.",
+  "description": "The magpie bridge between Korean live-streaming platforms and your VTuber setup. Route CHZZK chat, donations and subscriptions to VTube Studio, OBS, a 3D VRM avatar, browser overlays and Korean TTS.",
   "keywords": [
     "vtuber",
     "chzzk",
@@ -14,6 +14,8 @@
     "donation-alert",
     "tts",
     "korean",
+    "vrm",
+    "three-vrm",
     "live2d"
   ],
   "license": "MIT",
@@ -52,6 +54,8 @@
     "simulate": "tsx src/cli.ts simulate"
   },
   "dependencies": {
+    "@pixiv/three-vrm": "^3.6.0",
+    "three": "^0.187.0",
     "ws": "^8.23.0",
     "yaml": "^2.9.1",
     "zod": "^4.6.7"

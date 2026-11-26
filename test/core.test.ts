@@ -128,6 +128,7 @@ describe('config', () => {
     const config = parseConfig('');
     expect(config.server.port).toBe(7979);
     expect(config.outputs.tts.provider).toBe('browser');
+    expect(config.outputs.avatar).toEqual({ enabled: false, model: '', view: 'bust', lipSync: true });
   });
 
   it('explains invalid rules', () => {

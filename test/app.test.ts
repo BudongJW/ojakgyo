@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { App } from '../src/app.js';
@@ -99,5 +102,67 @@ rules:
     });
     expect(formPost.status).toBe(415);
     await expect(overlay(port, 'chat', 'https://evil.example')).rejects.toThrow(/403/);
+  });
+
+  it('serves the configured VRM and the browser modules the avatar overlay needs', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ojakgyo-avatar-'));
+    const model = join(dir, 'me.vrm');
+    writeFileSync(model, Buffer.from('glTF-fake-model'));
+    const { base } = await boot(`outputs:\n  avatar: { enabled: true, model: ${JSON.stringify(model)}, view: full }\n`);
+
+    expect(await (await fetch(`${base}/api/avatar`)).json()).toEqual({ enabled: true, view: 'full', lipSync: true, hasModel: true });
+    const vrm = await fetch(`${base}/avatar/model.vrm`);
+    expect(vrm.status).toBe(200);
+    expect(vrm.headers.get('content-type')).toBe('model/gltf-binary');
+    expect(Buffer.from(await vrm.arrayBuffer()).toString()).toBe('glTF-fake-model');
+
+    expect((await fetch(`${base}/overlay/avatar`)).status).toBe(200);
+    const three = await fetch(`${base}/vendor/three/build/three.module.js`);
+    expect(three.status).toBe(200);
+    expect(three.headers.get('content-type')).toContain('javascript');
+    expect((await fetch(`${base}/vendor/three-vrm/lib/three-vrm.module.js`)).status).toBe(200);
+    // only .js files, only from the two whitelisted packages, never outside them
+    expect((await fetch(`${base}/vendor/three/package.json`)).status).toBe(404);
+    expect((await fetch(`${base}/vendor/zod/index.js`)).status).toBe(404);
+    expect((await fetch(`${base}/vendor/three/%2E%2E/zod/index.js`)).status).not.toBe(200);
+  });
+
+  it('has no avatar model when the avatar output is off', async () => {
+    const { base } = await boot('');
+    expect(await (await fetch(`${base}/api/avatar`)).json()).toMatchObject({ enabled: false, hasModel: false });
+    expect((await fetch(`${base}/avatar/model.vrm`)).status).toBe(404);
+  });
+
+  it('relays TTS mouth levels and rule expressions to the avatar overlay', async () => {
+    const { base, port } = await boot(`
+outputs:
+  avatar: { enabled: true, model: missing.vrm }
+rules:
+  - name: big
+    on: donation
+    when: { minAmount: 10000 }
+    actions:
+      - type: avatar.expression
+        expression: happy
+        duration: 2
+`);
+    const origin = `http://localhost:${port}`;
+    const avatar = await overlay(port, 'avatar', origin);
+    const alerts = await overlay(port, 'alerts', origin);
+
+    alerts.ws.send(JSON.stringify({ kind: 'mouth', level: 0.5 }));
+    alerts.ws.send(JSON.stringify({ kind: 'mouth', level: 7 }));
+    await until(() => avatar.messages.filter((m) => m.kind === 'mouth').length >= 2);
+    expect(avatar.messages.filter((m) => m.kind === 'mouth').map((m) => m.level)).toEqual([0.5, 1]);
+
+    await fetch(`${base}/api/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'donation', amount: 50000 }),
+    });
+    await until(() => avatar.messages.some((m) => m.kind === 'avatar'));
+    expect(avatar.messages.find((m) => m.kind === 'avatar')).toEqual({ kind: 'avatar', expression: 'happy', weight: 1, duration: 2 });
+    avatar.ws.close();
+    alerts.ws.close();
   });
 });

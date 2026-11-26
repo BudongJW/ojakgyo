@@ -93,10 +93,24 @@ function speakBrowser(text, lang, volume) {
     u.volume = volume ?? 1;
     const voice = speechSynthesis.getVoices().find((v) => v.lang === u.lang);
     if (voice) u.voice = voice;
-    const timer = setTimeout(resolve, 2000 + text.length * 250); // some engines never fire onend
+    // The Web Speech API exposes no audio levels, so approximate lip-sync with a
+    // syllable-rate flap while speaking (word boundaries open the mouth wider).
+    let boost = 0;
+    u.onboundary = () => (boost = 1);
+    const flap = setInterval(() => {
+      const level = 0.25 + 0.45 * Math.abs(Math.sin(performance.now() / 85)) + boost * 0.3;
+      boost *= 0.5;
+      bridge.send({ kind: 'mouth', level: Math.min(1, level) });
+    }, 60);
+    const finish = () => {
+      clearInterval(flap);
+      bridge.send({ kind: 'mouth', level: 0 });
+      resolve();
+    };
+    const timer = setTimeout(finish, 2000 + text.length * 250); // some engines never fire onend
     u.onend = u.onerror = () => {
       clearTimeout(timer);
-      resolve();
+      finish();
     };
     speechSynthesis.speak(u);
   });

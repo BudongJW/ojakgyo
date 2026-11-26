@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import type { Action, LoadedConfig } from './config.js';
 import { ChzzkConnector } from './connectors/chzzk/connector.js';
 import { newEventId, type EventType, type OjakgyoEvent } from './core/events.js';
@@ -62,6 +64,12 @@ export class App {
       ttsClip: (id) => this.tts.clip(id),
       onMouth: (level) => this.vts?.setMouth(level),
       simulate: (input) => this.simulate(input),
+      avatar: {
+        enabled: config.outputs.avatar.enabled,
+        view: config.outputs.avatar.view,
+        lipSync: config.outputs.avatar.lipSync,
+        modelPath: this.avatarModelPath(),
+      },
       ...(this.chzzk ? { chzzk: this.chzzk } : {}),
     });
 
@@ -69,6 +77,21 @@ export class App {
     this.hub.on('event', (event) => {
       void this.engine.dispatch(event).catch((err) => log.error(`rule dispatch failed: ${errorMessage(err)}`));
     });
+  }
+
+  /** Resolve `outputs.avatar.model` relative to the config file; warn early if it is missing. */
+  private avatarModelPath(): string | null {
+    const { avatar } = this.loaded.config.outputs;
+    if (!avatar.enabled) return null;
+    if (!avatar.model) {
+      log.warn('outputs.avatar is enabled but no model is set. Point outputs.avatar.model at a .vrm file.');
+      return null;
+    }
+    const base = this.loaded.path ? dirname(this.loaded.path) : process.cwd();
+    const file = isAbsolute(avatar.model) ? avatar.model : resolve(base, avatar.model);
+    if (!existsSync(file)) log.warn(`avatar model not found: ${file}`);
+    else if (!/\.(vrm|glb)$/i.test(file)) log.warn(`avatar model should be a .vrm file: ${file}`);
+    return file;
   }
 
   async start(): Promise<void> {
@@ -212,6 +235,11 @@ export class App {
         const obs = need(this.obs, 'OBS');
         await obs.setFilterEnabled(a.source, a.filter, a.enabled);
         later(a.duration, () => obs.setFilterEnabled(a.source, a.filter, !a.enabled));
+      })
+      .handle('avatar.expression', (a) => {
+        if (!config.outputs.avatar.enabled) throw new Error('avatar output is disabled in ojakgyo.yaml');
+        if (this.server.overlayCount('avatar') === 0) log.debug('avatar.expression: no avatar overlay is open');
+        this.server.broadcast({ kind: 'avatar', expression: a.expression, weight: a.weight, duration: a.duration }, 'avatar');
       })
       .handle('chat.send', async (a, e) => {
         if (e.platform === 'mock') return log.info(`[chat.send · simulated] ${t(a.message, e)}`);

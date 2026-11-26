@@ -137,6 +137,7 @@ fetch('/api/state')
     document.getElementById('host').textContent = location.host;
     document.getElementById('urlAlerts').textContent = state.overlays.alerts;
     document.getElementById('urlChat').textContent = state.overlays.chat;
+    document.getElementById('urlAvatar').textContent = state.overlays.avatar;
     for (const s of state.statuses) statuses.set(s.id, s);
     renderStatuses();
     // Merge history with anything that already arrived live, newest first.
