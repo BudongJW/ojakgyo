@@ -58,20 +58,9 @@ export function richText(container, message, emojis = {}) {
 
 export const won = (n) => new Intl.NumberFormat('ko-KR').format(n);
 
-/** Stable pastel colour per nickname. */
+/** Stable, readable colour per nickname. */
 export function nickColor(name) {
   let h = 0;
   for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) % 360;
-  return `hsl(${h} 85% 75%)`;
-}
-
-export function sprinkleStars(target, count = 70) {
-  for (let i = 0; i < count; i++) {
-    const s = document.createElement('i');
-    s.style.left = `${Math.random() * 100}%`;
-    s.style.top = `${Math.random() * 100}%`;
-    s.style.animationDelay = `${Math.random() * 4}s`;
-    s.style.transform = `scale(${0.5 + Math.random()})`;
-    target.append(s);
-  }
+  return `hsl(${h} 55% 72%)`;
 }

@@ -237,7 +237,7 @@ export class OverlayServer {
       if (!code || !state) return sendHtml(res, 400, page('Login cancelled', 'No authorization code was returned.'));
       try {
         const name = await chzzk.completeLogin(code, state);
-        return sendHtml(res, 200, page('Connected ✨', `${name ? `<b>${escapeHtml(name)}</b> is` : 'Your channel is'} now bridged. You can close this tab.`));
+        return sendHtml(res, 200, page('Connected', `${name ? `<b>${escapeHtml(name)}</b> is` : 'Your channel is'} connected. You can close this tab.`));
       } catch (err) {
         return sendHtml(res, 400, page('Login failed', escapeHtml(errorMessage(err))));
       }
@@ -299,5 +299,5 @@ export function escapeHtml(s: string): string {
 
 function page(title: string, body: string): string {
   return `<!doctype html><html lang="en"><meta charset="utf-8"><title>${escapeHtml(title)} · ojakgyo</title>
-<link rel="stylesheet" href="/assets/ojakgyo.css"><body class="callback"><main class="card"><h1>${escapeHtml(title)}</h1><p>${body}</p><a href="/">Open dashboard →</a></main></body></html>`;
+<link rel="stylesheet" href="/assets/ojakgyo.css"><body class="callback"><main><h1>${escapeHtml(title)}</h1><p>${body}</p><a class="btn secondary" href="/">Back to dashboard</a></main></body></html>`;
 }

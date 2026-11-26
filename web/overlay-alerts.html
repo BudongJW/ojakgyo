@@ -3,36 +3,46 @@
 <head>
   <meta charset="utf-8" />
   <title>ojakgyo · alerts</title>
-  <link rel="stylesheet" href="/assets/ojakgyo.css" />
   <style>
-    html, body { background: transparent; overflow: hidden; width: 100vw; height: 100vh; }
-    body.preview { background: repeating-conic-gradient(#20233a 0% 25%, #191b2e 0% 50%) 50% / 32px 32px; }
-    .stage { position: fixed; left: 0; right: 0; top: 7vh; display: grid; place-items: center; pointer-events: none; }
-    .alert {
-      --accent: #ff7ac6;
-      position: relative; min-width: 520px; max-width: 74vw; padding: 26px 40px 28px; text-align: center;
-      border-radius: 28px; color: #fff;
-      background: linear-gradient(160deg, rgba(23, 27, 66, 0.92), rgba(10, 13, 38, 0.94));
-      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 70%, transparent), 0 18px 60px rgba(0, 0, 0, 0.45), 0 0 80px color-mix(in srgb, var(--accent) 35%, transparent);
-      animation: pop-in 0.7s cubic-bezier(.2, 1.4, .4, 1) both;
+    :root {
+      --font: 'Pretendard Variable', Pretendard, system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+      --accent: #e8a33d;
     }
-    .alert.out { animation: pop-out 0.55s ease-in both; }
-    .alert .badge { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; background: radial-gradient(circle at 35% 30%, #fff, var(--accent)); box-shadow: 0 0 24px var(--accent); }
-    .alert img.art { display: block; max-height: 180px; max-width: 320px; margin: 4px auto 12px; border-radius: 14px; }
-    .alert .title { font-size: 40px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; text-shadow: 0 2px 18px color-mix(in srgb, var(--accent) 60%, transparent); }
-    .alert .message { margin-top: 10px; font-size: 26px; line-height: 1.4; color: #e8eaff; word-break: break-word; }
-    .alert .message .emoji { height: 1.3em; vertical-align: -0.25em; }
-    .alert .bar { position: absolute; left: 28px; right: 28px; bottom: 12px; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
-    .alert .bar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--accent), #ffd27a); transform-origin: left; }
-    .spark { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); filter: drop-shadow(0 0 6px var(--accent)); animation: spark 1.2s ease-out forwards; }
-    .sound-gate { position: fixed; right: 16px; bottom: 16px; font: 600 13px var(--font); color: #fff; background: rgba(0,0,0,.6); padding: 10px 14px; border-radius: 12px; cursor: pointer; pointer-events: auto; }
-    @keyframes pop-in { from { opacity: 0; transform: translateY(-40px) scale(0.85); } }
-    @keyframes pop-out { to { opacity: 0; transform: translateY(-24px) scale(0.92); } }
-    @keyframes spark { from { opacity: 1; transform: translate(0, 0) scale(1); } to { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(0.2); } }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: transparent; overflow: hidden; width: 100vw; height: 100vh; font-family: var(--font); }
+    body.preview { background: repeating-conic-gradient(#2a2a2e 0% 25%, #222226 0% 50%) 50% / 24px 24px; }
+
+    .stage { position: fixed; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; padding: 0 4vw; }
+    .stage.top { top: 6vh; }
+    .stage.center { top: 50%; transform: translateY(-50%); }
+    .stage.bottom { bottom: 8vh; }
+
+    .alert {
+      position: relative; display: grid; grid-template-columns: 6px auto; min-width: 460px; max-width: 72vw;
+      background: rgba(16, 17, 19, 0.94); color: #f2f2f4; border-radius: 8px; overflow: hidden;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 12px 32px rgba(0, 0, 0, 0.35);
+      animation: enter 260ms cubic-bezier(.2, .7, .2, 1) both;
+    }
+    .alert.subscription { --accent: #5b9cf0; }
+    .alert.out { animation: leave 220ms ease-in both; }
+    .alert .bar-side { background: var(--accent); }
+    .alert .body { padding: 18px 26px 20px 22px; }
+    .alert .kicker { font-size: 15px; font-weight: 600; color: var(--accent); letter-spacing: 0.02em; }
+    .alert img.art { display: block; max-height: 160px; max-width: 280px; margin: 6px 0 10px; border-radius: 4px; }
+    .alert .title { margin-top: 2px; font-size: 34px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+    .alert .message { margin-top: 6px; font-size: 23px; line-height: 1.4; color: #c9c9cf; word-break: break-word; }
+    .alert .message .emoji { height: 1.25em; vertical-align: -0.25em; }
+    .alert .timer { position: absolute; left: 6px; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, 0.08); }
+    .alert .timer i { display: block; height: 100%; background: var(--accent); opacity: 0.7; transform-origin: left; }
+
+    .sound-gate { position: fixed; right: 16px; bottom: 16px; font: 600 13px var(--font); color: #fff; background: rgba(0, 0, 0, .7); padding: 8px 12px; border-radius: 6px; cursor: pointer; pointer-events: auto; border: 0; }
+    @keyframes enter { from { opacity: 0; transform: translateY(-12px); } }
+    @keyframes leave { to { opacity: 0; transform: translateY(-8px); } }
+    @media (prefers-reduced-motion: reduce) { .alert, .alert.out { animation-duration: 1ms; } }
   </style>
 </head>
 <body>
-  <div class="stage" id="stage"></div>
+  <div class="stage top" id="stage"></div>
   <script type="module" src="/assets/overlay-alerts.js"></script>
 </body>
 </html>

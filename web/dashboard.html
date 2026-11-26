@@ -3,79 +3,98 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ojakgyo · dashboard</title>
+  <title>ojakgyo</title>
   <link rel="icon" href="/assets/logo.svg" />
   <link rel="stylesheet" href="/assets/ojakgyo.css" />
 </head>
 <body class="dash">
-  <div class="sky" id="sky"></div>
   <div class="wrap">
-    <header class="top">
-      <img class="logo" src="/assets/logo.svg" alt="" />
-      <div>
-        <h1>ojakgyo <small>오작교</small></h1>
-        <p>Chat &amp; donations from Korean platforms, bridged to your avatar.</p>
-      </div>
-      <span class="ver" id="ver">v—</span>
+    <header class="topbar">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M6.5 22.5 Q16 5.5 25.5 22.5" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="0.1 4.4" />
+        <path d="M5 25.5h22" stroke="currentColor" stroke-opacity="0.45" stroke-width="1.6" stroke-linecap="round" />
+      </svg>
+      <span class="name">ojakgyo</span>
+      <a class="ver" id="ver" href="https://github.com/BudongJW/ojakgyo" target="_blank" rel="noopener">v—</a>
+      <span class="host" id="host"></span>
     </header>
 
-    <section class="status-row" id="statuses"></section>
+    <section class="status-strip" id="statuses" aria-label="Connections"></section>
 
     <div class="grid">
       <div>
-        <section class="panel">
-          <h2>🧪 Test bench</h2>
-          <div class="tabs" id="tabs">
-            <button data-type="donation" class="on">Donation</button>
-            <button data-type="chat">Chat</button>
-            <button data-type="subscription">Subscription</button>
-          </div>
-          <form id="sim">
-            <label class="f" for="nick">Nickname</label>
-            <input class="t" id="nick" value="별빛시청자" maxlength="30" />
-            <div id="amountBox">
-              <label class="f" for="amount">Amount (KRW)</label>
-              <input class="t" id="amount" type="number" min="0" step="100" value="5000" />
-              <div class="chips" id="amountChips">
-                <button type="button" data-v="1000">1,000</button>
-                <button type="button" data-v="5000">5,000</button>
-                <button type="button" data-v="10000">10,000</button>
-                <button type="button" data-v="50000">50,000</button>
-                <button type="button" data-v="1004">👼 1,004</button>
+        <section class="panel" aria-labelledby="bench-title">
+          <div class="panel-head"><h2 id="bench-title">Test event</h2></div>
+          <div class="panel-body">
+            <p class="hint">Runs a fake event through your rules. Nothing is posted to your channel.</p>
+            <div class="seg" id="tabs" role="group" aria-label="Event type">
+              <button type="button" data-type="donation" aria-pressed="true">Donation</button>
+              <button type="button" data-type="chat" aria-pressed="false">Chat</button>
+              <button type="button" data-type="subscription" aria-pressed="false">Subscription</button>
+            </div>
+            <form id="sim">
+              <div class="field">
+                <label for="nick">Nickname</label>
+                <input class="input" id="nick" value="별빛시청자" maxlength="30" autocomplete="off" />
               </div>
-            </div>
-            <div id="subBox" hidden>
-              <label class="f" for="months">Months</label>
-              <input class="t" id="months" type="number" min="1" value="3" />
-            </div>
-            <label class="f" for="msg">Message</label>
-            <textarea class="t" id="msg" maxlength="200">오늘 방송도 너무 재밌어요ㅋㅋㅋㅋㅋㅋ 화이팅!</textarea>
-            <button class="btn block" type="submit">✦ Send test event</button>
-          </form>
+              <div class="field" id="amountBox">
+                <label for="amount">Amount (KRW)</label>
+                <input class="input num" id="amount" type="number" min="0" step="100" value="5000" />
+                <div class="presets" id="amountPresets">
+                  <button type="button" data-v="1000">1,000</button>
+                  <button type="button" data-v="5000">5,000</button>
+                  <button type="button" data-v="10000">10,000</button>
+                  <button type="button" data-v="50000">50,000</button>
+                  <button type="button" data-v="1004">1,004</button>
+                </div>
+              </div>
+              <div class="field" id="subBox" hidden>
+                <label for="months">Months</label>
+                <input class="input num" id="months" type="number" min="1" value="3" />
+              </div>
+              <div class="field">
+                <label for="msg">Message</label>
+                <textarea class="input" id="msg" maxlength="200">오늘 방송도 너무 재밌어요ㅋㅋㅋㅋㅋㅋ 화이팅!</textarea>
+              </div>
+              <button class="btn primary" type="submit">Send test event</button>
+            </form>
+          </div>
         </section>
 
-        <section class="panel urls">
-          <h2>📺 OBS browser sources</h2>
-          <div class="u"><code id="urlAlerts">…</code><span>1920×1080</span><button class="btn small ghost" data-copy="urlAlerts">Copy</button></div>
-          <div class="u"><code id="urlChat">…</code><span>500×800</span><button class="btn small ghost" data-copy="urlChat">Copy</button></div>
+        <section class="panel" aria-labelledby="src-title">
+          <div class="panel-head"><h2 id="src-title">OBS browser sources</h2></div>
+          <div class="panel-body">
+            <div class="sources">
+              <div class="src-row">
+                <span class="src-name">Alerts</span>
+                <code id="urlAlerts">…</code>
+                <span class="size num">1920×1080</span>
+                <button class="btn secondary" type="button" data-copy="urlAlerts">Copy</button>
+              </div>
+              <div class="src-row">
+                <span class="src-name">Chat</span>
+                <code id="urlChat">…</code>
+                <span class="size num">500×800</span>
+                <button class="btn secondary" type="button" data-copy="urlChat">Copy</button>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
 
       <div>
-        <section class="panel">
-          <h2>✨ Live events <span class="count" id="evCount">0</span></h2>
-          <div class="feed" id="feed"><div class="empty">Waiting for chat, donations and subscriptions…<br/>Try the test bench on the left.</div></div>
+        <section class="panel" aria-labelledby="ev-title">
+          <div class="panel-head"><h2 id="ev-title">Events</h2><span class="meta num" id="evCount">0</span></div>
+          <ul class="events" id="feed" aria-live="polite">
+            <li class="empty">No events yet. Send a test event, or go live.</li>
+          </ul>
         </section>
-        <section class="panel">
-          <h2>📜 Log</h2>
-          <div class="logs" id="logs"></div>
+        <section class="panel" aria-labelledby="log-title">
+          <div class="panel-head"><h2 id="log-title">Log</h2></div>
+          <pre class="logs" id="logs"><span class="muted">Waiting for log output…</span></pre>
         </section>
       </div>
     </div>
-
-    <footer class="foot">
-      Made for Korean VTubers · <a href="https://github.com/BudongJW/ojakgyo" target="_blank" rel="noopener">github.com/BudongJW/ojakgyo</a>
-    </footer>
   </div>
   <script type="module" src="/assets/dashboard.js"></script>
 </body>

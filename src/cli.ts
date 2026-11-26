@@ -12,7 +12,7 @@ const log = createLogger('ojakgyo');
 const PKG_ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
 
 const HELP = `
-${color.bold('ojakgyo')} ${color.dim(`v${VERSION}`)} · the magpie bridge for Korean VTuber streams
+${color.bold('ojakgyo')} ${color.dim(`v${VERSION}`)}: connect CHZZK events to VTube Studio, OBS and overlays
 
 ${color.bold('Usage')}
   ojakgyo init                  Create ojakgyo.yaml and .env in the current folder
@@ -32,17 +32,15 @@ ${color.bold('Options')}
 `;
 
 function banner(origin: string): void {
-  const stars = color.dim('✦ ⋆ ˚ ✧ ⋆ ✦ ˚ ⋆ ✧ ✦ ⋆ ˚ ✧');
+  const row = (label: string, url: string, note = '') =>
+    `  ${label.padEnd(15)}${color.cyan(url)}${note ? `  ${color.dim(note)}` : ''}`;
   const lines = [
     '',
-    `  ${stars}`,
-    `     ${color.bold(color.magenta('ojakgyo'))} ${color.dim('오작교')}  ${color.dim(`v${VERSION}`)}`,
-    `     ${color.dim('chat & donations ⟶ your avatar')}`,
-    `  ${stars}`,
+    `  ${color.bold('ojakgyo')} ${color.dim(`v${VERSION}`)}`,
     '',
-    `  ${color.cyan('Dashboard')}      ${origin}/`,
-    `  ${color.cyan('Alert overlay')}  ${origin}/overlay/alerts   ${color.dim('(OBS browser source, 1920×1080)')}`,
-    `  ${color.cyan('Chat overlay')}   ${origin}/overlay/chat     ${color.dim('(OBS browser source, 500×800)')}`,
+    row('Dashboard', `${origin}/`),
+    row('Alert overlay', `${origin}/overlay/alerts`, '1920×1080 browser source'),
+    row('Chat overlay', `${origin}/overlay/chat`, '500×800 browser source'),
     '',
   ];
   process.stdout.write(lines.join('\n') + '\n');

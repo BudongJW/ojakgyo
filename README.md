@@ -49,7 +49,7 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
 
 <div align="center">
   <img src="docs/assets/dashboard.png" alt="ojakgyo dashboard: connection status, test bench and live event feed" width="92%" />
-  <br/><sub><b>Dashboard</b>: connection health, a test bench for fake events, and a live feed of everything coming over the bridge.</sub>
+  <br/><sub><b>Dashboard</b>: connection status, a form for test events, and every event that crosses the bridge. Follows your system's light or dark theme.</sub>
 </div>
 
 <br/>
@@ -58,11 +58,11 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
   <tr>
     <td width="62%" align="center">
       <img src="docs/assets/alert-overlay.png" alt="Donation alert overlay" />
-      <br/><sub><b>Alert overlay</b>: queued alerts with TTS. Add it as an OBS browser source.</sub>
+      <br/><sub><b>Alert overlay</b>: one alert at a time, read aloud by TTS. Add it as an OBS browser source.</sub>
     </td>
     <td width="38%" align="center">
       <img src="docs/assets/chat-overlay.png" alt="Chat overlay" />
-      <br/><sub><b>Chat overlay</b>: transparent, role badges, CHZZK emoji.</sub>
+      <br/><sub><b>Chat overlay</b>: transparent background, role labels, CHZZK emoji.</sub>
     </td>
   </tr>
 </table>
@@ -172,14 +172,11 @@ ojakgyo start
 ```
 
 ```text
-  ✦ ⋆ ˚ ✧ ⋆ ✦ ˚ ⋆ ✧ ✦ ⋆ ˚ ✧
-     ojakgyo 오작교  v0.1.0
-     chat & donations ⟶ your avatar
-  ✦ ⋆ ˚ ✧ ⋆ ✦ ˚ ⋆ ✧ ✦ ⋆ ˚ ✧
+  ojakgyo v0.1.0
 
   Dashboard      http://localhost:7979/
-  Alert overlay  http://localhost:7979/overlay/alerts   (OBS browser source, 1920×1080)
-  Chat overlay   http://localhost:7979/overlay/chat     (OBS browser source, 500×800)
+  Alert overlay  http://localhost:7979/overlay/alerts  1920×1080 browser source
+  Chat overlay   http://localhost:7979/overlay/chat  500×800 browser source
 ```
 
 Open **http://localhost:7979**, send a test donation from the test bench, and watch it arrive. Prefer the terminal? Run `ojakgyo simulate donation -a 10000 -m "화이팅!"`.
@@ -191,7 +188,7 @@ Open **http://localhost:7979**, send a test donation from the test bench, and wa
 3. Repeat with `http://localhost:7979/overlay/chat` at **500×800** for the chat box.
 
 > [!TIP]
-> Append `?preview=1` to see a checkerboard behind an overlay in a normal browser, or `?demo=1` on the alert overlay to loop a sample alert while you position it.
+> Append `?preview=1` to see a checkerboard behind an overlay in a normal browser. On the alert overlay, `?demo=1` loops a sample alert while you position it and `?position=center` or `?position=bottom` moves the card.
 
 ### 🟢 Connect CHZZK (about 3 minutes)
 
