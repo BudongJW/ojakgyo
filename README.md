@@ -127,8 +127,8 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
   </tr>
   <tr>
     <td colspan="2" valign="top">
-      <h3>🧍 3D VRM avatar overlay</h3>
-      No VTube Studio? Point ojakgyo at a <b>.vrm</b> file (VRoid Studio exports one) and add <code>/overlay/avatar</code> to OBS. The avatar idles, blinks and looks at the viewer, <b>lip-syncs to donation TTS</b>, reacts to events with the <code>avatar.expression</code> action, and <b>follows your face from a webcam</b> (MediaPipe, in the browser). Works with VRM 0.x and 1.0 through <a href="https://github.com/pixiv/three-vrm">three-vrm</a>, uses <b>Perfect Sync</b> (ARKit 52) faces when your model has them, and <code>ojakgyo avatar optimize</code> cuts heavy VRoid exports by 35–60%.
+      <h3>🧍 3D and 2D avatar overlay</h3>
+      No VTube Studio? Point ojakgyo at a <b>.vrm</b> file (VRoid Studio exports one) and add <code>/overlay/avatar</code> to OBS. The avatar idles, blinks and looks at the viewer, <b>lip-syncs to donation TTS</b>, reacts to events with the <code>avatar.expression</code> action, and <b>follows your face from a webcam</b> (MediaPipe, in the browser). Works with VRM 0.x and 1.0 through <a href="https://github.com/pixiv/three-vrm">three-vrm</a>, uses <b>Perfect Sync</b> (ARKit 52) faces when your model has them, and <code>ojakgyo avatar optimize</code> cuts heavy VRoid exports by 35–60%. <b>Inochi2D</b> puppets (<code>.inp</code>, <code>.inx</code>) run on the same browser source with their masks, MeshGroups and hair physics.
     </td>
   </tr>
 </table>
@@ -279,7 +279,7 @@ The overlay switches to your face as soon as frames arrive and eases back to idl
 
 <div align="center">
   <img src="docs/assets/face-tracker.png" alt="The face tracker page following a turned head, and the avatar overlay turning the same way" width="100%" />
-  <br/><sub>Fed with a rendered test head instead of a webcam: head scan by Lee Perry-Smith (Infinite Realities, CC BY 3.0). Avatar: VRoid sample Sakurada Fumiriya (CC0).</sub>
+  <br/><sub>Fed with a rendered test head instead of a webcam: head scan by Lee Perry-Smith (Infinite Realities, <a href="https://creativecommons.org/licenses/by/3.0/">CC BY 3.0</a>), rendered with our own skin colour. Avatar: VRoid sample Sakurada Fumiriya (CC0).</sub>
 </div>
 
 Camera frames never leave the browser tab. Only the blendshape values and head angles (a few hundred bytes, up to 30 times a second) go to the bridge on `localhost`. Keep the tracker window visible while streaming, because browsers throttle hidden tabs.
@@ -320,6 +320,39 @@ rules:
 
 > [!NOTE]
 > Without the tracker, the avatar overlay animates on its own (breathing, blinking, gaze) and lip-syncs to TTS. Body and hand tracking are not supported. The model file is read from your disk and served only to `localhost`. It is never uploaded, and ojakgyo does not bundle any model. Check the license embedded in your VRM before streaming with it.
+
+### 🎨 2D avatar (Inochi2D)
+
+[Inochi2D](https://inochi2d.com) is the open-source 2D puppet format (BSD-licensed, an alternative to Live2D). ojakgyo has its own WebGL renderer for it, so a rigged puppet goes straight into OBS without another app.
+
+1. Export your puppet from Inochi Creator as `.inp`, or use the `.inx` project file. To try it first, grab **Aka** or **Midori** from [Inochi2D/example-models](https://github.com/Inochi2D/example-models) (CC BY 4.0, by seagetch).
+2. Point the avatar output at it. Everything else stays the same as for VRM:
+   ```yaml
+   outputs:
+     avatar:
+       enabled: true
+       model: Aka.inx         # .inp or .inx; .vrm files still get the 3D renderer
+       view: bust             # bust or full
+   ```
+3. Add `http://localhost:7979/overlay/avatar` to OBS. The URL options above work here too, plus `?set=Head::+Roll=0.5` to pin a parameter while you check a rig (`+` stands for the space; join several with `|`).
+
+<div align="center">
+  <img src="docs/assets/inochi-overlay.png" alt="Aka in full view at rest, Aka and Midori following a tracked pose" width="100%" />
+  <br/><sub>Inochi2D sample rigs Aka and Midori by seagetch (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>), drawn by ojakgyo: rest pose, then a tracked head turn, wink and smile.</sub>
+</div>
+
+The renderer follows the Inochi2D 0.8 runtime: parts, masks and dodge masks, Composites, the basic blend modes (Multiply, Screen, Linear Dodge, Clip to Lower and the rest), MeshGroups, and SimplePhysics pendulums for hair, ears and cloth. Breathing, blinking, TTS lip-sync and the webcam tracker drive these parameters when the rig has them:
+
+| Parameter | Driven by |
+| --- | --- |
+| `Head:: Yaw-Pitch`, `Head:: Roll` | head turn (tracker) or idle sway |
+| `Body:: Yaw-Pitch`, `Body:: Roll` | a third of the head movement |
+| `Eye:: Left:: Blink`, `Eye:: Right:: Blink` | each eye (tracker) or idle blinking |
+| `Eye:: Left:: Move`, `Eye:: Right:: Move` | gaze (tracker) |
+| `Mouth:: Shape` | open from the jaw or TTS, smile from the tracker |
+| `Breath` | idle breathing |
+
+These are the names the official sample rigs use; a rig with other names still renders and runs its physics, it just is not driven. For `avatar.expression` on a 2D rig, give a parameter name as the `expression` and a 0–1 `weight` (for example `expression: "Mouth:: Shape"`); `happy` maps onto the smile.
 
 ## 🧩 Rules
 
@@ -398,7 +431,7 @@ Rule-level options: `cooldown` (seconds), `stop: true` (skip later rules when th
 | `obs.scene` | `scene`, `revertAfter` | Switches scene, optionally switching back |
 | `obs.source` | `scene`, `source`, `visible`, `duration` | Shows or hides a source |
 | `obs.filter` | `source`, `filter`, `enabled`, `duration` | Toggles a filter |
-| `avatar.expression` | `expression`, `weight`, `duration` | Shows a VRM expression on the 3D avatar overlay, then fades back |
+| `avatar.expression` | `expression`, `weight`, `duration` | Shows a VRM expression on the avatar overlay (or moves an Inochi2D parameter), then fades back |
 | `chat.send` | `message` | Posts to your CHZZK chat (max 100 characters) |
 | `delay` | `seconds` | Waits before the next action in the rule |
 | `webhook` | `url`, `method`, `body` | Sends the event (or a templated body) anywhere, e.g. Discord |
@@ -446,7 +479,7 @@ outputs:
 - [x] 3D VRM avatar overlay with TTS lip-sync and rule-driven expressions
 - [x] Perfect Sync (ARKit 52) faces and `ojakgyo avatar optimize` for lighter VRMs
 - [x] Webcam face tracking for the 3D avatar (MediaPipe, ARKit-compatible output)
-- [ ] 2D avatars: Inochi2D puppets as an overlay
+- [x] 2D avatars: Inochi2D puppets as an overlay
 - [ ] **SOOP** connector (official Chat SDK through a headless relay)
 - [ ] **CIME** connector
 - [ ] YouTube Live chat
@@ -479,7 +512,7 @@ No. ojakgyo is an event bridge. The webcam tracker uses the browser's GPU when i
 
 No. For Live2D models, VTube Studio loads and renders your model, and ojakgyo drives it through VTube Studio's public plugin API. No Live2D Cubism code or sample models are bundled.
 
-For 3D VRM models, ojakgyo can render the avatar itself with the MIT-licensed three-vrm library (see [3D avatar](#-3d-avatar-vrm)). Its webcam tracker covers the face (expressions and head turn); for hand or full-body tracking keep using a dedicated tracker.
+For 3D VRM models, ojakgyo can render the avatar itself with the MIT-licensed three-vrm library (see [3D avatar](#-3d-avatar-vrm)), and for 2D it renders Inochi2D puppets, the open format (see [2D avatar](#-2d-avatar-inochi2d)). Its webcam tracker covers the face (expressions and head turn); for hand or full-body tracking keep using a dedicated tracker.
 </details>
 
 <details>
@@ -508,6 +541,8 @@ The code is organized like the bridge itself: `src/connectors/` (platforms in), 
 ## 📄 License
 
 [MIT](LICENSE) © BudongJW
+
+The Inochi2D renderer (`web/assets/inochi2d-core.js`, `inochi2d-gl.js`) is ported from the [Inochi2D](https://github.com/Inochi2D/inochi2d) runtime, BSD 2-Clause License, Copyright (c) 2020 Inochi2D Project; the full notice is kept at the top of those files.
 
 <sub>ojakgyo is an independent open-source project. It is not affiliated with, endorsed by or sponsored by NAVER (CHZZK), SOOP, DenchiSoft (VTube Studio) or the OBS Project. All product names and trademarks belong to their respective owners.</sub>
 

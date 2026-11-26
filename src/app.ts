@@ -85,13 +85,13 @@ export class App {
     const { avatar } = this.loaded.config.outputs;
     if (!avatar.enabled) return null;
     if (!avatar.model) {
-      log.warn('outputs.avatar is enabled but no model is set. Point outputs.avatar.model at a .vrm file.');
+      log.warn('outputs.avatar is enabled but no model is set. Point outputs.avatar.model at a .vrm, .inp or .inx file.');
       return null;
     }
     const base = this.loaded.path ? dirname(this.loaded.path) : process.cwd();
     const file = isAbsolute(avatar.model) ? avatar.model : resolve(base, avatar.model);
     if (!existsSync(file)) log.warn(`avatar model not found: ${file}`);
-    else if (!/\.(vrm|glb)$/i.test(file)) log.warn(`avatar model should be a .vrm file: ${file}`);
+    else if (!/\.(vrm|glb|inp|inx)$/i.test(file)) log.warn(`avatar model should be a .vrm (3D) or .inp / .inx (Inochi2D) file: ${file}`);
     return file;
   }
 

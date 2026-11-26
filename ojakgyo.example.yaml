@@ -33,7 +33,7 @@ outputs:
 
   avatar:
     enabled: false
-    model: my-avatar.vrm       # a VRoid / VRM file, relative to this config
+    model: my-avatar.vrm       # a VRoid / VRM file or an Inochi2D puppet (.inp / .inx), relative to this config
     view: bust                 # bust | full
     lipSync: true              # mouth follows donation TTS
     # Webcam face tracking: open http://localhost:7979/tracker in a browser window.

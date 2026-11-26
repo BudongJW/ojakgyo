@@ -70,6 +70,11 @@ export interface FaceFrame {
 }
 
 /** Accept only well-formed, bounded face frames before relaying them. */
+/** Which renderer a model file needs: Inochi2D puppets (.inp, .inx) or VRM / glTF. */
+export function avatarFormat(file: string | null): 'vrm' | 'inochi2d' {
+  return file && /\.(inp|inx)$/i.test(file) ? 'inochi2d' : 'vrm';
+}
+
 export function sanitizeFace(msg: unknown): FaceFrame | null {
   const m = msg as { blend?: unknown; head?: unknown };
   if (!m || typeof m.blend !== 'object' || m.blend === null || !Array.isArray(m.head) || m.head.length !== 3) return null;
@@ -221,15 +226,20 @@ export class OverlayServer {
     }
     ws.on('message', (raw) => {
       try {
-        const msg = JSON.parse(raw.toString()) as { kind?: string; level?: number; perfectSync?: unknown; expressions?: unknown; vrmVersion?: unknown };
+        const msg = JSON.parse(raw.toString()) as { kind?: string; level?: number; perfectSync?: unknown; expressions?: unknown; vrmVersion?: unknown; format?: unknown; parts?: unknown; params?: unknown; tracked?: unknown };
         if (msg.kind === 'face' && role === 'tracker') {
           const frame = sanitizeFace(msg);
           if (frame) this.broadcast({ kind: 'face', ...frame }, 'avatar');
           return;
         }
         if (msg.kind === 'avatar-info' && role === 'avatar') {
-          const ps = msg.perfectSync === true ? 'Perfect Sync (ARKit) face' : 'VRM preset face';
-          log.info(`avatar loaded: VRM ${String(msg.vrmVersion ?? '?').slice(0, 8)}, ${Number(msg.expressions) || 0} expressions, ${ps}`);
+          if (msg.format === 'inochi2d') {
+            const tracked = Array.isArray(msg.tracked) ? msg.tracked.filter((t): t is string => typeof t === 'string').slice(0, 8).join(', ') : '';
+            log.info(`avatar loaded: Inochi2D puppet, ${Number(msg.parts) || 0} parts, ${Number(msg.params) || 0} parameters${tracked ? ` (drives ${tracked})` : ''}`);
+          } else {
+            const ps = msg.perfectSync === true ? 'Perfect Sync (ARKit) face' : 'VRM preset face';
+            log.info(`avatar loaded: VRM ${String(msg.vrmVersion ?? '?').slice(0, 8)}, ${Number(msg.expressions) || 0} expressions, ${ps}`);
+          }
         }
         if (msg.kind === 'mouth' && typeof msg.level === 'number' && Number.isFinite(msg.level)) {
           const level = Math.max(0, Math.min(1, msg.level));
@@ -285,14 +295,15 @@ export class OverlayServer {
 
     if (req.method === 'GET' && path === '/api/avatar') {
       const a = this.hooks.avatar;
-      return sendJson(res, 200, { enabled: a.enabled, view: a.view, lipSync: a.lipSync, hasModel: a.enabled && !!a.modelPath });
+      return sendJson(res, 200, { enabled: a.enabled, view: a.view, lipSync: a.lipSync, hasModel: a.enabled && !!a.modelPath, format: avatarFormat(a.modelPath) });
     }
-    if (req.method === 'GET' && path === '/avatar/model.vrm') {
+    if (req.method === 'GET' && (path === '/avatar/model' || path === '/avatar/model.vrm')) {
       const file = this.hooks.avatar.enabled ? this.hooks.avatar.modelPath : null;
       if (!file) return sendJson(res, 404, { error: 'no avatar model configured' });
       try {
         const info = await stat(file);
-        res.writeHead(200, { 'Content-Type': 'model/gltf-binary', 'Content-Length': info.size, 'Cache-Control': 'no-cache' });
+        const type = avatarFormat(file) === 'inochi2d' ? 'application/octet-stream' : 'model/gltf-binary';
+        res.writeHead(200, { 'Content-Type': type, 'Content-Length': info.size, 'Cache-Control': 'no-cache' });
         createReadStream(file).pipe(res);
       } catch {
         sendJson(res, 404, { error: 'avatar model file not found' });
