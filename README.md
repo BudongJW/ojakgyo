@@ -5,6 +5,7 @@
 <h3>Your CHZZK chat, donations and subscriptions,<br/>bridged to VTube Studio, OBS, browser overlays and Korean TTS.</h3>
 
 <p>
+  <a href="https://github.com/BudongJW/ojakgyo/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/BudongJW/ojakgyo/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=0d1230&color=6ef2c0"></a>
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-ff7ac6?style=for-the-badge&labelColor=0d1230"></a>
   <img alt="Node 22+" src="https://img.shields.io/badge/node-%E2%89%A522-7ad7ff?style=for-the-badge&logo=nodedotjs&logoColor=white&labelColor=0d1230">
   <img alt="TypeScript strict" src="https://img.shields.io/badge/TypeScript-strict-3178c6?style=for-the-badge&logo=typescript&logoColor=white&labelColor=0d1230">
