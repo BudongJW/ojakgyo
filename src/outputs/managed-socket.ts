@@ -36,6 +36,8 @@ export abstract class ManagedSocket {
   protected abstract handshake(): Promise<void>;
   /** Raw message hook; call `settle()` for responses. */
   protected abstract onMessage(message: unknown): void;
+  /** Runs once the connection is ready and marked connected; for follow-up requests such as event subscriptions. */
+  protected onReady(): Promise<void> | void {}
 
   get isReady(): boolean {
     return this.ready;
@@ -133,6 +135,12 @@ export abstract class ManagedSocket {
           this.log.warn(`${this.statusLabel} handshake failed: ${errorMessage(err)}`);
           this.status('error', errorMessage(err));
           ws.close();
+          return;
+        }
+        try {
+          await this.onReady();
+        } catch (err) {
+          this.log.debug(`${this.statusLabel} setup after connect failed: ${errorMessage(err)}`);
         }
       });
 

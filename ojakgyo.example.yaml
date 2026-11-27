@@ -25,6 +25,7 @@ outputs:
       enabled: false           # move the avatar's mouth while TTS speaks
       parameter: MouthOpen
       gain: 1.6
+      mode: auto               # auto: "set", or "add" on top if another plugin (e.g. VBridger) already sets it
 
   obs:
     enabled: false

@@ -238,6 +238,10 @@ Open **http://localhost:7979**, send a test donation from the test bench, and wa
 
 In VTube Studio open **Settings → Start API (allow plugins)**, keep port `8001`, and set `outputs.vtubeStudio.enabled: true`. On first connect VTube Studio asks whether to allow **Ojakgyo**. Click **Allow** once and the token is remembered.
 
+Once connected, the dashboard shows which model is loaded. Whenever VTube Studio loads a model, and whenever you save rules, ojakgyo checks that the hotkeys and expressions your rules name exist in that model and logs a warning for any that do not (with a "did you mean" when only the letter case differs). A burst of donations cannot overflow VTube Studio's hotkey queue (one hotkey every 5 frames, 32 waiting): ojakgyo waits and retries for a few seconds instead of dropping the hotkey.
+
+With `lipSync.enabled: true` the mouth parameter (`MouthOpen` by default) follows donation TTS. VTube Studio lets only one plugin "set" a parameter, so if another plugin such as VBridger already drives it, the default `lipSync.mode: auto` adds the TTS mouth movement on top of it instead of failing. Use `set` or `add` to force one mode.
+
 ### 🎬 Connect OBS
 
 In OBS open **Tools → WebSocket Server Settings**, enable the server, put the password in `.env` as `OBS_PASSWORD`, and set `outputs.obs.enabled: true`.

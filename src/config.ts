@@ -198,8 +198,10 @@ const VtsSchema = z.object({
       enabled: z.boolean().default(false),
       parameter: z.string().default('MouthOpen'),
       gain: z.number().positive().default(1.6),
+      /** auto: "set", or "add" on top when another plugin (e.g. VBridger) already sets the parameter. */
+      mode: z.enum(['auto', 'set', 'add']).default('auto'),
     })
-    .default({ enabled: false, parameter: 'MouthOpen', gain: 1.6 }),
+    .default({ enabled: false, parameter: 'MouthOpen', gain: 1.6, mode: 'auto' }),
 });
 
 const ObsSchema = z.object({

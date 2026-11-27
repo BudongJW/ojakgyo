@@ -6,12 +6,14 @@ import WebSocket from 'ws';
 import { App } from '../src/app.js';
 import { parseConfig } from '../src/config.js';
 import { MemoryStore } from '../src/core/store.js';
-import { until } from './helpers.js';
+import { startServer, until, type TestServer } from './helpers.js';
 
 let app: App | null = null;
+const fakes: TestServer[] = [];
 afterEach(async () => {
   await app?.stop();
   app = null;
+  await Promise.all(fakes.splice(0).map((s) => s.close()));
 });
 
 async function boot(yaml: string): Promise<{ app: App; base: string; port: number }> {
@@ -164,5 +166,42 @@ rules:
     expect(avatar.messages.find((m) => m.kind === 'avatar')).toEqual({ kind: 'avatar', expression: 'happy', weight: 1, duration: 2 });
     avatar.ws.close();
     alerts.ws.close();
+  });
+
+  it('checks rule hotkeys against the VTube Studio model on connect and on every model swap', async () => {
+    const asked: string[] = [];
+    const sockets: WebSocket[] = [];
+    const vts = await startServer(undefined, (ws) => {
+      sockets.push(ws as unknown as WebSocket);
+      ws.on('message', (raw) => {
+        const msg = JSON.parse(raw.toString());
+        const reply = (messageType: string, data: unknown) => ws.send(JSON.stringify({ apiName: 'VTubeStudioPublicAPI', apiVersion: '1.0', requestID: msg.requestID, messageType, data }));
+        asked.push(msg.messageType);
+        if (msg.messageType === 'AuthenticationTokenRequest') reply('AuthenticationTokenResponse', { authenticationToken: 't' });
+        else if (msg.messageType === 'AuthenticationRequest') reply('AuthenticationResponse', { authenticated: true });
+        else if (msg.messageType === 'EventSubscriptionRequest') reply('EventSubscriptionResponse', { subscribedEventCount: 1 });
+        else if (msg.messageType === 'CurrentModelRequest') reply('CurrentModelResponse', { modelLoaded: true, modelName: 'Hiyori', modelID: 'aaa' });
+        else if (msg.messageType === 'HotkeysInCurrentModelRequest') reply('HotkeysInCurrentModelResponse', { availableHotkeys: [{ name: 'Heart Eyes', hotkeyID: 'h1', type: 'ToggleExpression', file: '' }] });
+        else if (msg.messageType === 'ExpressionStateRequest') reply('ExpressionStateResponse', { expressions: [{ name: 'blush', file: 'blush.exp3.json', active: false }] });
+      });
+    });
+    fakes.push(vts);
+    const { app } = await boot(`
+outputs: { vtubeStudio: { enabled: true, url: "ws://127.0.0.1:${vts.port}" } }
+rules:
+  - name: party
+    on: donation
+    actions:
+      - { type: vts.hotkey, hotkey: Heart Eyes }
+      - { type: vts.hotkey, hotkey: Wave }
+      - { type: vts.expression, file: blush.exp3.json }
+`);
+    await until(() => asked.filter((m) => m === 'HotkeysInCurrentModelRequest').length === 1);
+    expect(await app.checkVtsReferences()).toEqual([{ rule: 'party', kind: 'hotkey', value: 'Wave' }]);
+
+    const before = asked.filter((m) => m === 'HotkeysInCurrentModelRequest').length;
+    for (const ws of sockets) ws.send(JSON.stringify({ apiName: 'VTubeStudioPublicAPI', apiVersion: '1.0', requestID: 'evt', messageType: 'ModelLoadedEvent', data: { modelLoaded: true, modelName: 'Mao', modelID: 'bbb' } }));
+    await until(() => asked.filter((m) => m === 'HotkeysInCurrentModelRequest').length > before);
+    expect(app.vts?.currentModel).toEqual({ id: 'bbb', name: 'Mao' });
   });
 });

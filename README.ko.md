@@ -229,6 +229,10 @@ ojakgyo start
 
 VTube Studio 설정에서 **Start API (allow plugins)** 를 켜고 포트는 `8001` 그대로 둔 뒤, 설정 파일에서 `outputs.vtubeStudio.enabled: true`로 바꿉니다. 처음 연결할 때 VTube Studio가 **Ojakgyo** 플러그인을 허용할지 묻습니다. **Allow**를 한 번 누르면 토큰이 저장되어 다음부터는 묻지 않습니다.
 
+연결되면 대시보드에 지금 불러온 모델 이름이 나옵니다. VTube Studio가 모델을 불러올 때마다, 그리고 규칙을 저장할 때마다 오작교는 규칙에 적힌 단축키와 표정이 그 모델에 있는지 확인하고, 없는 것은 로그에 경고로 남깁니다. 대소문자만 다르면 맞는 이름도 함께 알려 줍니다. 후원이 한꺼번에 몰려도 VTube Studio의 단축키 대기열(단축키 하나당 5프레임에 1번, 최대 32개 대기)이 넘치지 않도록, 오작교가 몇 초 동안 기다렸다가 다시 보냅니다. 단축키를 버리지 않습니다.
+
+`lipSync.enabled: true`로 두면 입 파라미터(기본값 `MouthOpen`)가 후원 TTS를 따라 움직입니다. VTube Studio는 한 파라미터를 "set" 방식으로 쓰는 플러그인을 하나만 허용합니다. 그래서 VBridger 같은 다른 플러그인이 이미 입을 움직이고 있으면, 기본값인 `lipSync.mode: auto`가 실패하는 대신 TTS 입 움직임을 그 위에 더합니다. 한 방식으로 고정하려면 `set`이나 `add`를 적으세요.
+
 ### 🎬 OBS 연결하기
 
 OBS에서 **도구 → WebSocket 서버 설정**을 열어 서버를 켭니다. 비밀번호를 `.env`의 `OBS_PASSWORD`에 넣고, 설정 파일에서 `outputs.obs.enabled: true`로 바꿉니다.

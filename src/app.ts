@@ -12,6 +12,7 @@ import { FileStore, type KeyValueStore } from './core/store.js';
 import { render, renderDeep } from './core/template.js';
 import { Obs } from './outputs/obs.js';
 import { TtsService } from './outputs/tts.js';
+import { missingVtsReferences, type MissingVtsReference } from './outputs/vts-references.js';
 import { VTubeStudio } from './outputs/vtube-studio.js';
 import { actionCatalog, compactRule, readRulesFromFile, writeRulesToFile } from './rules-file.js';
 import { OverlayServer, type RulesApiResult } from './server/http.js';
@@ -45,6 +46,9 @@ export class App {
 
     const vtsCfg = config.outputs.vtubeStudio;
     this.vts = vtsCfg.enabled ? new VTubeStudio(vtsCfg.url, this.hub, this.store, vtsCfg.lipSync) : null;
+    this.vts?.onModelChange((model) => {
+      if (model) void this.checkVtsReferences();
+    });
     const obsCfg = config.outputs.obs;
     this.obs = obsCfg.enabled ? new Obs(obsCfg.url, this.hub, obsCfg.password) : null;
 
@@ -197,7 +201,33 @@ export class App {
     this.engine.setRules(result.rules);
     this.loaded.config.rules = result.rules;
     log.info(`rules saved to ${basename(path)} and applied (${result.rules.length} rule${result.rules.length === 1 ? '' : 's'})`);
+    void this.checkVtsReferences();
     return { status: 200, body: { ok: true, rules: readRulesFromFile(path) } };
+  }
+
+  /**
+   * Warn when a rule names a VTube Studio hotkey or expression the loaded model does not have.
+   * Runs on connect, on every model swap and after the rule editor saves.
+   */
+  async checkVtsReferences(): Promise<MissingVtsReference[]> {
+    const vts = this.vts;
+    const model = vts?.currentModel;
+    if (!vts || !model) return [];
+    const rules = this.loaded.config.rules;
+    if (!rules.some((r) => r.actions.some((a) => a.type === 'vts.hotkey' || a.type === 'vts.expression'))) return [];
+    try {
+      const [hotkeys, files] = await Promise.all([vts.hotkeys(), vts.expressionFiles()]);
+      if (vts.currentModel?.id !== model.id) return []; // swapped again meanwhile; that swap checks itself
+      const missing = missingVtsReferences(rules, hotkeys, files);
+      for (const m of missing) {
+        log.warn(`rule "${m.rule}": VTube Studio model "${model.name}" has no ${m.kind} "${m.value}"${m.suggestion ? ` (did you mean "${m.suggestion}"?)` : ''}`);
+      }
+      if (!missing.length) log.info(`VTube Studio model "${model.name}" has every hotkey and expression your rules use`);
+      return missing;
+    } catch (err) {
+      log.debug(`could not check VTube Studio hotkeys: ${errorMessage(err)}`);
+      return [];
+    }
   }
 
   /** Run one rule (saved or not) once with a sample event that fits its conditions. */
