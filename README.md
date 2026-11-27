@@ -351,7 +351,7 @@ rules:
 
 [Inochi2D](https://inochi2d.com) is the open-source 2D puppet format (BSD-licensed, an alternative to Live2D). ojakgyo has its own WebGL renderer for it, so a rigged puppet goes straight into OBS without another app.
 
-1. Export your puppet from Inochi Creator as `.inp`, or use the `.inx` project file. To try it first, grab **Aka** or **Midori** from [Inochi2D/example-models](https://github.com/Inochi2D/example-models) (CC BY 4.0, by seagetch).
+1. Export your puppet from Inochi Creator as `.inp`, or use the `.inx` project file. To try it first, use **Kkachi 2D**, the CC0 puppet in this repo (`model: examples/avatars/kkachi-2d/kkachi2d.inp`), or grab **Aka** or **Midori** from [Inochi2D/example-models](https://github.com/Inochi2D/example-models) (CC BY 4.0, by seagetch).
 2. Point the avatar output at it. Everything else stays the same as for VRM:
    ```yaml
    outputs:
@@ -378,7 +378,14 @@ The renderer follows the Inochi2D 0.8 runtime: parts, masks and dodge masks, Com
 | `Mouth:: Shape` | open from the jaw or TTS, smile from the tracker |
 | `Breath` | idle breathing |
 
-These are the names the official sample rigs use; a rig with other names still renders and runs its physics, it just is not driven. For `avatar.expression` on a 2D rig, give a parameter name as the `expression` and a 0–1 `weight` (for example `expression: "Mouth:: Shape"`); `happy` maps onto the smile.
+These are the names the official sample rigs use; a rig with other names still renders and runs its physics, it just is not driven.
+
+**Kkachi 2D** is the 3D Kkachi turned into a 2D model: each part rendered on its own, and every keyform the 3D model's own motion (head and body turns, blinks, mouth shapes, five expressions) projected to 2D, with hair physics on top. Her expression parameters are named like the VRM ones (`happy`, `angry`, `sad`, `relaxed`, `surprised`), so the same `avatar.expression` rules drive both avatars. She also comes as a 34-layer PSD for anyone who wants to rig her in Live2D Cubism. See [examples/avatars/kkachi-2d](examples/avatars/kkachi-2d).
+
+<div align="center">
+  <img src="docs/assets/kkachi-2d.png" alt="Kkachi 2D at rest, turning, looking up, tilting, winking, talking, happy, angry and surprised" width="100%" />
+  <br/><sub>Kkachi 2D (CC0) in the avatar overlay.</sub>
+</div> For `avatar.expression` on a 2D rig, give a parameter name as the `expression` and a 0–1 `weight` (for example `expression: "Mouth:: Shape"`); `happy` maps onto the smile.
 
 ## 🧩 Rules
 

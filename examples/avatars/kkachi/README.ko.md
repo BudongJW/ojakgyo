@@ -14,6 +14,8 @@
 | 라이선스 | **CC0**. 파일 안의 라이선스 항목에도 적혀 있습니다 |
 | 원본 | VRoid 샘플 캐릭터 센다가야 시노, 비타, 빅토리아 루빈(CC0, pixiv Inc.) |
 
+Inochi2D 퍼핏과 Live2D용 PSD로 된 2D 버전도 있습니다: [까치 2D](../kkachi-2d/README.ko.md).
+
 이렇게 씁니다.
 
 ```yaml

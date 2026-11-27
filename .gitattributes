@@ -3,3 +3,6 @@
 *.gif binary
 *.vrm binary
 *.glb binary
+*.inp binary
+*.inx binary
+*.psd binary

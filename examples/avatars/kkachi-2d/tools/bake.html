@@ -1,0 +1,287 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<script type="importmap">
+{ "imports": {
+  "three": "/nm/three/build/three.module.js",
+  "three/addons/": "/nm/three/examples/jsm/",
+  "@pixiv/three-vrm": "/nm/@pixiv/three-vrm/lib/three-vrm.module.js"
+} }
+</script></head>
+<body style="margin:0;background:#222">
+<script type="module">
+// Bake Kkachi into 2D: one transparent image per layer (rest pose), the layer's front-facing triangles,
+// and every layer vertex projected to the canvas in each keyform state. build.mjs turns this into a puppet.
+import * as THREE from 'three';
+import { loadModel, restPose, frameCamera, project, worldPos, bone, settle, makeRenderer, lights, save, SIZE } from './scene.js';
+
+const DEG = Math.PI / 180;
+// Morph target indices of Kkachi's face (VRoid Fcl_* names, see extras.targetNames).
+const MORPH = { allAngry: 0, allFun: 1, allJoy: 2, allSorrow: 3, allSurprised: 4, eyeCloseR: 13, eyeCloseL: 14, mthFun: 25, mthJoy: 26, mthSorrow: 27, mthA: 29 };
+
+try {
+  const { vrm, meshes } = await loadModel('/kkachi.vrm');
+  restPose(vrm);
+  const { cam, top, bottom, h } = frameCamera(vrm, meshes);
+  const prim = (g, p) => meshes.find((m) => m.gltfMesh === g && m.prim === p).mesh;
+  const v = new THREE.Vector3();
+
+  /* ── layers: back to front ── */
+  // Character's left is +x (viewer's right), as in the Inochi2D sample rigs.
+  const restWorld = new Map(); // mesh -> Float32Array of rest world positions (x,y,z)
+  function rest(mesh) {
+    if (!restWorld.has(mesh)) {
+      const n = mesh.geometry.attributes.position.count;
+      const a = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { mesh.getVertexPosition(i, v); v.applyMatrix4(mesh.matrixWorld); a.set([v.x, v.y, v.z], i * 3); }
+      restWorld.set(mesh, a);
+    }
+    return restWorld.get(mesh);
+  }
+  const centroid = (mesh, a, b, c) => {
+    const r = rest(mesh);
+    return [0, 1, 2].map((k) => (r[a * 3 + k] + r[b * 3 + k] + r[c * 3 + k]) / 3);
+  };
+  const boneOf = (mesh, i) => {
+    const si = mesh.geometry.attributes.skinIndex, sw = mesh.geometry.attributes.skinWeight;
+    let best = 0, w = -1;
+    for (let k = 0; k < 4; k++) { const wk = sw.getComponent(i, k); if (wk > w) { w = wk; best = si.getComponent(i, k); } }
+    return mesh.skeleton.bones[best].name;
+  };
+  const armSide = (name) => (/(Arm|Hand|Thumb|Index|Middle|Ring|Little)/.test(name) ? (/_L_|Left/.test(name) ? 'L' : /_R_|Right/.test(name) ? 'R' : null) : null);
+  /** Triangles of a primitive, optionally filtered by (mesh, a, b, c) => bool. */
+  const tris = (mesh, keep = () => true) => {
+    const idx = mesh.geometry.index.array;
+    const out = [];
+    for (let t = 0; t < idx.length; t += 3) if (keep(mesh, idx[t], idx[t + 1], idx[t + 2])) out.push(idx[t], idx[t + 1], idx[t + 2]);
+    return { mesh, tris: out };
+  };
+  const side = (s) => (mesh, a, b, c) => (centroid(mesh, a, b, c)[0] > 0) === (s === 'L');
+  const eyeY = {};
+  {
+    const r = rest(prim(0, 1));
+    for (const s of ['L', 'R']) {
+      const ys = [];
+      const idx = prim(0, 1).geometry.index.array;
+      for (const i of idx) if ((r[i * 3] > 0) === (s === 'L')) ys.push(r[i * 3 + 1]);
+      eyeY[s] = ys.reduce((a, b) => a + b, 0) / ys.length;
+    }
+  }
+  const lineHalf = (s, upper) => (mesh, a, b, c) => side(s)(mesh, a, b, c) && (centroid(mesh, a, b, c)[1] > eyeY[s]) === upper;
+  const arm = (s) => (mesh, a, b, c) => [a, b, c].filter((i) => armSide(boneOf(mesh, i)) === s).length >= 2;
+  const notArm = (mesh, a, b, c) => [a, b, c].filter((i) => armSide(boneOf(mesh, i))).length < 2;
+  // Skirt and corset: weighted to the hips, legs or skirt bones rather than the chest.
+  const waistY = worldPos(vrm, 'upperChest').y - 0.18;
+  const skirt = (mesh, a, b, c) => centroid(mesh, a, b, c)[1] < waistY || [a, b, c].filter((i) => /Skirt|Hips|Leg|_C_Spine$/.test(boneOf(mesh, i))).length >= 2;
+  const hair = (ids) => ids.map((p) => tris(prim(2, p)));
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+  const hairX = (ids, s) => ids.filter((p) => { const m = prim(2, p); const r = rest(m); const used = new Set(m.geometry.index.array); let x = 0; for (const i of used) x += r[i * 3]; return (x / used.size > 0) === (s === 'L'); });
+  const sideHair = [...range(25, 41)];
+  const locks = [11, 12, 13, 14];
+
+  // Ponytail strands and ribbon pieces behind (z < 0) or in front of the ponytail's middle.
+  const zOf = (p) => { const m = prim(2, p); const r = rest(m); const used = new Set(m.geometry.index.array); let z = 0; for (const i of used) z += r[i * 3 + 2]; return z / used.size; };
+  const ponytail = [...range(42, 52), 58, 59];
+  const ribbon = range(53, 57);
+  const ORDER = (new URLSearchParams(location.search).get('order') ?? '').split('|').filter(Boolean);
+  let LAYERS = [
+    ['Hair:: Ponytail:: Back', 'head', hair(ponytail.filter((p) => zOf(p) < -0.008))],
+    ['Ribbon:: Back', 'head', hair(ribbon.filter((p) => zOf(p) < 0))],
+    ['Hair:: Ponytail', 'head', hair(ponytail.filter((p) => zOf(p) >= -0.008 && zOf(p) < 0.028))],
+    ['Ribbon:: Front', 'head', hair(ribbon.filter((p) => zOf(p) >= 0))],
+    ['Hair:: Ponytail:: Front', 'head', hair(ponytail.filter((p) => zOf(p) >= 0.028))],
+    ['Hair:: Back', 'head', [...hair(range(0, 10)), tris(prim(1, 6))]],
+    ['Arm:: Right', 'body', [tris(prim(1, 0), arm('R')), tris(prim(1, 4), arm('R'))]],
+    ['Arm:: Left', 'body', [tris(prim(1, 0), arm('L')), tris(prim(1, 4), arm('L'))]],
+    ['Body:: Skin', 'body', [tris(prim(1, 0), notArm)]],
+    // The skirt hem weaves in front of and behind the sleeves, so its image is cut by the arms and hands
+    // (depth only); drawn in front of them, it then matches the 3D layering.
+    ['Body:: Skirt', 'body', [tris(prim(1, 4), (m, a, b, c) => notArm(m, a, b, c) && skirt(m, a, b, c))],
+      [tris(prim(1, 0), arm('R')), tris(prim(1, 4), arm('R')), tris(prim(1, 0), arm('L')), tris(prim(1, 4), arm('L')), tris(prim(1, 2), arm('R')), tris(prim(1, 2), arm('L'))]],
+    ['Body:: Clothes', 'body', [tris(prim(1, 4), (m, a, b, c) => notArm(m, a, b, c) && !skirt(m, a, b, c))]],
+    ['Hand:: Right', 'body', [tris(prim(1, 2), arm('R'))]],
+    ['Hand:: Left', 'body', [tris(prim(1, 2), arm('L'))]],
+    ['Mouth:: Inside', 'head', [tris(prim(0, 0))]],
+    ['Eye:: Right:: White', 'head', [tris(prim(0, 1), side('R'))]],
+    ['Eye:: Left:: White', 'head', [tris(prim(0, 1), side('L'))]],
+    ['Eye:: Right:: Iris', 'head', [tris(prim(0, 5), side('R'))]],
+    ['Eye:: Left:: Iris', 'head', [tris(prim(0, 5), side('L'))]],
+    ['Eye:: Right:: Highlight', 'head', [tris(prim(0, 6), side('R'))]],
+    ['Eye:: Left:: Highlight', 'head', [tris(prim(0, 6), side('L'))]],
+    ['Face', 'head', [tris(prim(0, 7)), tris(prim(0, 8))]],
+    ['Eye:: Right:: Line:: Lower', 'head', [tris(prim(0, 2), lineHalf('R', false))]],
+    ['Eye:: Left:: Line:: Lower', 'head', [tris(prim(0, 2), lineHalf('L', false))]],
+    ['Eye:: Right:: Line:: Upper', 'head', [tris(prim(0, 2), lineHalf('R', true))]],
+    ['Eye:: Left:: Line:: Upper', 'head', [tris(prim(0, 2), lineHalf('L', true))]],
+    ['Eye:: Right:: Lash', 'head', [tris(prim(0, 3), side('R'))]],
+    ['Eye:: Left:: Lash', 'head', [tris(prim(0, 3), side('L'))]],
+    ['Brow:: Right', 'head', [tris(prim(0, 4), side('R'))]],
+    ['Brow:: Left', 'head', [tris(prim(0, 4), side('L'))]],
+    ['Hair:: Side:: Right', 'head', hair(hairX(sideHair, 'R'))],
+    ['Hair:: Side:: Left', 'head', hair(hairX(sideHair, 'L'))],
+    ['Hair:: Lock:: Right', 'head', hair(hairX(locks, 'R'))],
+    ['Hair:: Lock:: Left', 'head', hair(hairX(locks, 'L'))],
+    ['Hair:: Front', 'head', hair(range(15, 24))],
+  ];
+  // ?order=A|B|... reorders layers (back to front); names not listed keep their place after the listed ones.
+  if (ORDER.length) LAYERS = [...ORDER.map((n) => LAYERS.find((l) => l[0] === n)).filter(Boolean), ...LAYERS.filter((l) => !ORDER.includes(l[0]))];
+  LAYERS = LAYERS.filter((l) => l[2].some((p) => p.tris.length));
+
+  /* ── keep front-facing, on-canvas triangles; build each layer's vertex list ── */
+  const projRest = (mesh, i) => { const r = rest(mesh); return project(cam, v.set(r[i * 3], r[i * 3 + 1], r[i * 3 + 2])); };
+  const layers = [];
+  for (const [name, group, parts, occluders] of LAYERS) {
+    const verts = []; // [meshRef, vertexIndex]
+    const local = new Map();
+    const out = [];
+    for (const { mesh, tris: t } of parts) {
+      const doubleSided = mesh.material.side === THREE.DoubleSide;
+      for (let k = 0; k < t.length; k += 3) {
+        const p = [t[k], t[k + 1], t[k + 2]].map((i) => projRest(mesh, i));
+        const area = (p[1][0] - p[0][0]) * (p[2][1] - p[0][1]) - (p[2][0] - p[0][0]) * (p[1][1] - p[0][1]);
+        if (Math.abs(area) < 1e-3) continue;
+        if (!doubleSided && area > 0) continue; // pixel space is y-down, so front faces (CCW in GL) have negative area
+        if (p.every((q) => q[0] < 0 || q[0] > SIZE || q[1] < 0 || q[1] > SIZE)) continue;
+        for (const i of [t[k], t[k + 1], t[k + 2]]) {
+          const key = `${mesh.uuid}:${i}`;
+          if (!local.has(key)) { local.set(key, verts.length); verts.push([mesh, i]); }
+          out.push(local.get(key));
+        }
+      }
+    }
+    layers.push({ name, group, parts, verts, tris: out, occluders: occluders ?? [] });
+  }
+
+  /* ── states ── */
+  const faceMeshes = meshes.filter((m) => m.gltfMesh === 0).map((m) => m.mesh);
+  // Rotate a normalized bone about WORLD axes (its rest local rotation is identity).
+  const rotateWorld = (name, euler) => {
+    const node = bone(vrm, name);
+    const pq = node.parent.getWorldQuaternion(new THREE.Quaternion());
+    const qw = new THREE.Quaternion().setFromEuler(new THREE.Euler(euler[0], euler[1], euler[2], 'YXZ'));
+    // world' = qw * P * L  =>  L' = (P^-1 qw P) L
+    node.quaternion.premultiply(pq.clone().invert().multiply(qw).multiply(pq));
+  };
+  function applyState(s) {
+    restPose(vrm);
+    for (const m of faceMeshes) m.morphTargetInfluences?.fill(0);
+    vrm.scene.updateMatrixWorld(true);
+    const ops = s.ops ?? [];
+    for (const op of ops) {
+      if (op.bone) { rotateWorld(op.bone, op.rot); settle(vrm); }
+      if (op.morph !== undefined) for (const m of faceMeshes) if (m.morphTargetInfluences) m.morphTargetInfluences[op.morph] = op.w;
+    }
+    settle(vrm);
+  }
+  // Head: yaw +1 turns the face to the viewer's right (+Y rotation), pitch +1 tilts it up (-X rotation).
+  const headOps = (yaw, pitch) => [
+    { bone: 'neck', rot: [-pitch * 10 * DEG * 0.3, yaw * 20 * DEG * 0.3, 0] },
+    { bone: 'head', rot: [-pitch * 10 * DEG * 0.7, yaw * 20 * DEG * 0.7, 0] },
+  ];
+  // Mostly from the hips, so arms and skirt turn together (the skirt image is cut by the arms at rest).
+  const bodyOps = (yaw, pitch) => [
+    { bone: 'hips', rot: [-pitch * 6 * DEG * 0.75, yaw * 12 * DEG * 0.75, 0] },
+    { bone: 'spine', rot: [-pitch * 6 * DEG * 0.25, yaw * 12 * DEG * 0.25, 0] },
+  ];
+  const STATES = [{ id: 'rest' }];
+  const add = (param, at, ops) => STATES.push({ id: `${param}@${at.join(',')}`, param, at, ops });
+  for (const yaw of [-1, -0.5, 0, 0.5, 1]) for (const pitch of [-1, 0, 1]) if (yaw || pitch) add('Head:: Yaw-Pitch', [yaw, pitch], headOps(yaw, pitch));
+  for (const yaw of [-1, 0, 1]) for (const pitch of [-1, 0, 1]) if (yaw || pitch) add('Body:: Yaw-Pitch', [yaw, pitch], bodyOps(yaw, pitch));
+  // Breath: shoulders rise a little while the upper arms counter-rotate, so the arms lift without swinging.
+  add('Breath', [1], [
+    { bone: 'leftShoulder', rot: [0, 0, 1.2 * DEG] }, { bone: 'leftUpperArm', rot: [0, 0, -1.2 * DEG] },
+    { bone: 'rightShoulder', rot: [0, 0, -1.2 * DEG] }, { bone: 'rightUpperArm', rot: [0, 0, 1.2 * DEG] },
+    { bone: 'upperChest', rot: [-0.8 * DEG, 0, 0] },
+  ]);
+  add('Eye:: Left:: Blink', [1], [{ morph: MORPH.eyeCloseL, w: 1 }]);
+  add('Eye:: Right:: Blink', [1], [{ morph: MORPH.eyeCloseR, w: 1 }]);
+  add('Eye:: Left:: Move', [-1], [{ bone: 'leftEye', rot: [0, -12 * DEG, 0] }]);
+  add('Eye:: Left:: Move', [1], [{ bone: 'leftEye', rot: [0, 12 * DEG, 0] }]);
+  add('Eye:: Right:: Move', [-1], [{ bone: 'rightEye', rot: [0, -12 * DEG, 0] }]);
+  add('Eye:: Right:: Move', [1], [{ bone: 'rightEye', rot: [0, 12 * DEG, 0] }]);
+  // Mouth:: Shape: x 0 frown, 0.6 neutral (the overlay's resting value), 1 smile; y 0 closed .. 1 open.
+  const form = (x) => (x === 0 ? [{ morph: MORPH.mthSorrow, w: 1 }] : x === 1 ? [{ morph: MORPH.mthFun, w: 1 }] : []);
+  for (const x of [0, 0.6, 1]) for (const y of [0, 0.5, 1]) if (x !== 0.6 || y !== 0) add('Mouth:: Shape', [x, y], [...form(x), ...(y ? [{ morph: MORPH.mthA, w: y }] : [])]);
+  // Whole-face expressions, named like the VRM ones so avatar.expression rules work on both avatars.
+  add('happy', [1], [{ morph: MORPH.allJoy, w: 1 }]);
+  add('angry', [1], [{ morph: MORPH.allAngry, w: 1 }]);
+  add('sad', [1], [{ morph: MORPH.allSorrow, w: 1 }]);
+  add('relaxed', [1], [{ morph: MORPH.allFun, w: 1 }]);
+  add('surprised', [1], [{ morph: MORPH.allSurprised, w: 1 }]);
+
+  const total = layers.reduce((n, l) => n + l.verts.length, 0);
+  const pos = new Float32Array(STATES.length * total * 2);
+  const anchors = []; // per state: head pivot (head bone), face centre (between the eyes), hips, chest
+  STATES.forEach((s, si) => {
+    applyState(s);
+    let o = si * total * 2;
+    for (const l of layers) for (const [mesh, i] of l.verts) {
+      mesh.getVertexPosition(i, v);
+      v.applyMatrix4(mesh.matrixWorld);
+      const p = project(cam, v);
+      pos[o++] = p[0];
+      pos[o++] = p[1];
+    }
+    const eyes = worldPos(vrm, 'leftEye').add(worldPos(vrm, 'rightEye')).multiplyScalar(0.5);
+    anchors.push({ head: project(cam, worldPos(vrm, 'head')).slice(0, 2), face: project(cam, eyes).slice(0, 2), neck: project(cam, worldPos(vrm, 'neck')).slice(0, 2), chest: project(cam, worldPos(vrm, 'upperChest')).slice(0, 2), hips: project(cam, worldPos(vrm, 'hips')).slice(0, 2) });
+  });
+  await save('positions.bin', pos.buffer);
+
+  /* ── images: each layer alone at rest, then the whole model ── */
+  applyState(STATES[0]);
+  const renderer = makeRenderer();
+  const scene = new THREE.Scene();
+  lights(scene);
+  scene.add(vrm.scene);
+  const all = meshes.map((m) => m.mesh);
+  const original = new Map(all.map((m) => [m, m.geometry.index]));
+  renderer.render(scene, cam);
+  await save('full.png', renderer.domElement.toDataURL('image/png'));
+  // Depth-only copy of some triangles of a skinned mesh, drawn first so it hides what lies behind it.
+  const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false });
+  const occluderMesh = ({ mesh, tris: t }) => {
+    const g = new THREE.BufferGeometry();
+    for (const [k, a] of Object.entries(mesh.geometry.attributes)) g.setAttribute(k, a);
+    g.morphAttributes = mesh.geometry.morphAttributes;
+    g.morphTargetsRelative = mesh.geometry.morphTargetsRelative;
+    g.setIndex(t);
+    const o = new THREE.SkinnedMesh(g, depthOnly);
+    o.bind(mesh.skeleton, mesh.bindMatrix);
+    o.morphTargetInfluences = mesh.morphTargetInfluences;
+    o.morphTargetDictionary = mesh.morphTargetDictionary;
+    o.renderOrder = -10;
+    o.frustumCulled = false;
+    mesh.parent.add(o);
+    return o;
+  };
+  for (const [li, l] of layers.entries()) {
+    for (const m of all) m.visible = false;
+    for (const { mesh, tris: t } of l.parts) {
+      mesh.geometry.setIndex(t);
+      mesh.visible = t.length > 0;
+    }
+    const occ = l.occluders.filter((o) => o.tris.length).map(occluderMesh);
+    renderer.render(scene, cam);
+    await save(`layer_${String(li).padStart(2, '0')}.png`, renderer.domElement.toDataURL('image/png'));
+    for (const o of occ) o.removeFromParent();
+    if (occ.length) {
+      // The whole part too, uncut, for the rigging PSD (painters want hidden areas filled in).
+      renderer.render(scene, cam);
+      await save(`layer_${String(li).padStart(2, '0')}_full.png`, renderer.domElement.toDataURL('image/png'));
+      l.imageFull = `layer_${String(li).padStart(2, '0')}_full.png`;
+    }
+    for (const { mesh } of l.parts) mesh.geometry.setIndex(original.get(mesh));
+  }
+  for (const m of all) m.visible = true;
+
+  await save('bake.json', JSON.stringify({
+    size: SIZE, frame: { top, bottom, h }, pxPerMeter: SIZE / h,
+    states: STATES.map(({ id, param, at }) => ({ id, param, at })), anchors,
+    layers: layers.map((l, i) => ({ name: l.name, group: l.group, image: `layer_${String(i).padStart(2, '0')}.png`, ...(l.imageFull ? { imageFull: l.imageFull } : {}), vertexCount: l.verts.length, tris: l.tris })),
+  }));
+  console.log(`baked ${layers.length} layers, ${total} vertices, ${STATES.length} states`);
+  document.title = 'done';
+} catch (e) {
+  console.log(e.stack ?? e);
+  document.title = 'error';
+}
+</script></body></html>

@@ -14,6 +14,8 @@ ojakgyo's own sample avatar. The bridge in the Korean legend that gives this pro
 | License | **CC0**, also written into the file's own license fields |
 | Made from | the VRoid sample characters Sendagaya Shino, Vita and Victoria Rubin (CC0, pixiv Inc.) |
 
+There is also a 2D version, as an Inochi2D puppet and a Live2D-ready PSD: [Kkachi 2D](../kkachi-2d).
+
 Use it with:
 
 ```yaml

@@ -342,7 +342,7 @@ rules:
 
 [Inochi2D](https://inochi2d.com)는 오픈소스 2D 퍼핏 형식입니다(BSD 라이선스, Live2D의 대안). 오작교에는 전용 WebGL 렌더러가 들어 있어서, 리깅한 퍼핏을 다른 앱 없이 바로 OBS에 띄울 수 있습니다.
 
-1. Inochi Creator에서 퍼핏을 `.inp`로 내보내거나 `.inx` 프로젝트 파일을 그대로 씁니다. 먼저 시험해 보려면 [Inochi2D/example-models](https://github.com/Inochi2D/example-models)에서 **Aka**나 **Midori**를 받으세요(CC BY 4.0, seagetch 제작).
+1. Inochi Creator에서 퍼핏을 `.inp`로 내보내거나 `.inx` 프로젝트 파일을 그대로 씁니다. 먼저 시험해 보려면 이 저장소에 든 CC0 퍼핏 **까치 2D**(`model: examples/avatars/kkachi-2d/kkachi2d.inp`)를 쓰거나, [Inochi2D/example-models](https://github.com/Inochi2D/example-models)에서 **Aka**나 **Midori**를 받으세요(CC BY 4.0, seagetch 제작).
 2. 아바타 출력을 그 파일로 지정합니다. 나머지는 VRM과 같습니다.
    ```yaml
    outputs:
@@ -369,7 +369,14 @@ rules:
 | `Mouth:: Shape` | 입 벌림은 턱이나 TTS, 미소는 트래커 |
 | `Breath` | 숨쉬기 |
 
-공식 샘플 리그가 쓰는 이름입니다. 이름이 다른 리그도 그려지고 물리도 돌지만, 위 신호로 움직이지는 않습니다. 2D 리그에 `avatar.expression`을 쓸 때는 `expression`에 파라미터 이름을, `weight`에 0–1 값을 넣습니다(예: `expression: "Mouth:: Shape"`). `happy`는 미소로 연결됩니다.
+공식 샘플 리그가 쓰는 이름입니다. 이름이 다른 리그도 그려지고 물리도 돌지만, 위 신호로 움직이지는 않습니다.
+
+**까치 2D**는 3D 까치를 2D 모델로 옮긴 것입니다. 파츠마다 따로 렌더링하고, 모든 키폼을 3D 모델의 실제 움직임(고개와 몸 돌림, 깜빡임, 입 모양, 표정 5종)을 투영해 만든 뒤 머리카락 물리를 더했습니다. 표정 파라미터 이름이 VRM과 같아서(`happy`, `angry`, `sad`, `relaxed`, `surprised`) 같은 `avatar.expression` 규칙으로 두 아바타를 모두 움직일 수 있습니다. Live2D Cubism으로 직접 리깅할 수 있는 34장짜리 PSD도 함께 있습니다. 자세한 내용은 [examples/avatars/kkachi-2d](examples/avatars/kkachi-2d/README.ko.md)에 있습니다.
+
+<div align="center">
+  <img src="docs/assets/kkachi-2d.png" alt="까치 2D의 기본 자세, 고개 돌림, 위로 보기, 기울이기, 윙크, 입 벌림, 기쁨, 화남, 놀람" width="100%" />
+  <br/><sub>아바타 오버레이 속 까치 2D (CC0).</sub>
+</div> 2D 리그에 `avatar.expression`을 쓸 때는 `expression`에 파라미터 이름을, `weight`에 0–1 값을 넣습니다(예: `expression: "Mouth:: Shape"`). `happy`는 미소로 연결됩니다.
 
 ## 🧩 규칙
 
