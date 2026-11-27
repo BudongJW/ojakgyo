@@ -13,6 +13,8 @@ function applyLang(lang) {
   setLang(lang);
   translatePage();
   for (const b of document.querySelectorAll('#lang button')) b.setAttribute('aria-pressed', String(b.dataset.lang === getLang()));
+  // The version link opens the README in the dashboard's language.
+  document.getElementById('ver').href = `https://github.com/BudongJW/ojakgyo${getLang() === 'ko' ? '/blob/main/README.ko.md' : ''}`;
   renderStatuses();
   renderEvents();
   renderLicense();

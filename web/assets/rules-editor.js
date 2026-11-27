@@ -325,7 +325,7 @@ function renderEditor() {
     cond.append(fieldBox(t('rules.minTier'), numberInput(w.minTier, wset('minTier'), { min: 1 }), [i, 'when', 'minTier']));
     cond.append(fieldBox(t('rules.minMonths'), numberInput(w.minMonths, wset('minMonths'), { min: 0 }), [i, 'when', 'minMonths']));
   }
-  cond.append(fieldBox(t('rules.match'), textInput(w.match, wset('match'), t('rules.eg', { v: '^!hat$' })), [i, 'when', 'match']));
+  cond.append(fieldBox(t('rules.match'), textInput(w.match, wset('match'), t('rules.egMatch')), [i, 'when', 'match']));
   cond.append(fieldBox(t('rules.contains'), textInput(asList(w.contains).join(', '), (v) => wset('contains')(parseList(v, false))), [i, 'when', 'contains'], t('rules.listHint')));
   root.append(cond);
 

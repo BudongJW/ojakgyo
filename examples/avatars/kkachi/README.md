@@ -1,5 +1,7 @@
 # Kkachi (까치)
 
+<sub><b>English</b> · <a href="README.ko.md">한국어</a></sub>
+
 <img src="portrait.png" alt="Kkachi" width="200" align="right" />
 
 ojakgyo's own sample avatar. The bridge in the Korean legend that gives this project its name is built by magpies (*kkachi*) and crows, so she wears a magpie's colours: black and white with a blue-green sheen, and gold eyes for the night sky.
@@ -56,6 +58,8 @@ node examples/avatars/kkachi/tools/build.mjs --thumbnail examples/avatars/kkachi
 npx ojakgyo avatar optimize kkachi-full.vrm -o kkachi.vrm --max 1024
 node examples/avatars/kkachi/tools/face-diff.mjs kkachi.vrm
 ```
+
+In Windows PowerShell, set the folder with `$env:VROID_SAMPLES = "C:\path\to\vroid-samples"` instead of the first line.
 
 `--weights 0.34,0.33,0.33` sets how much of Shino, Vita and Victoria goes into the face (they must add up to 1). Change it for a different face. The palette is the `P` table and the per-texture rules in `build.mjs`.
 

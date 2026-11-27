@@ -29,6 +29,8 @@
 <a href="#%EF%B8%8F-roadmap"><b>Roadmap</b></a> ·
 <a href="#-faq"><b>FAQ</b></a>
 
+<p><sub><b>English</b> · <a href="README.ko.md">한국어</a></sub></p>
+
 </div>
 
 <br/>
@@ -58,7 +60,7 @@ ojakgyo is a small, local-first bridge built on those official APIs. It needs no
 <br/>
 <div align="center">
   <img src="docs/assets/dashboard-ko.png" alt="ojakgyo dashboard in Korean" width="92%" />
-  <br/><sub>The dashboard picks Korean automatically when your browser is set to Korean. Switch any time with the <code>EN / 한국어</code> toggle in the top bar.</sub>
+  <br/><sub>The dashboard picks Korean automatically when your browser is set to Korean. Switch any time with the <code>EN / 한국어</code> toggle in the top bar. The docs are in Korean too: <a href="README.ko.md">README.ko.md</a>.</sub>
 </div>
 </details>
 
@@ -339,7 +341,7 @@ rules:
 ```
 
 > [!NOTE]
-> Without the tracker, the avatar overlay animates on its own (breathing, blinking, gaze) and lip-syncs to TTS. Body and hand tracking are not supported. The model file is read from your disk and served only to `localhost`. It is never uploaded, and ojakgyo does not bundle any model. Check the license embedded in your VRM before streaming with it.
+> Without the tracker, the avatar overlay animates on its own (breathing, blinking, gaze) and lip-syncs to TTS. Body and hand tracking are not supported. The model file is read from your disk and served only to `localhost`. It is never uploaded. The npm package ships no model; Kkachi lives only in the repository's examples folder. Check the license embedded in your VRM before streaming with it.
 
 ### 🎨 2D avatar (Inochi2D)
 
@@ -514,13 +516,13 @@ outputs:
 - [x] Perfect Sync (ARKit 52) faces and `ojakgyo avatar optimize` for lighter VRMs
 - [x] Webcam face tracking for the 3D avatar (MediaPipe, ARKit-compatible output)
 - [x] 2D avatars: Inochi2D puppets as an overlay
+- [x] Rule editor in the dashboard
+- [x] Docs in Korean: [README.ko.md](README.ko.md)
 - [ ] **SOOP** connector (official Chat SDK through a headless relay)
 - [ ] **CIME** connector
 - [ ] YouTube Live chat
-- [x] Rule editor in the dashboard
 - [ ] Desktop app with tray icon and auto-start
 - [ ] Optional AI co-host (local LLM) with built-in AI-content labeling
-- [ ] 한국어 문서
 
 Have an idea? [Open an issue](https://github.com/BudongJW/ojakgyo/issues/new/choose). Feedback from working streamers shapes what comes next.
 
